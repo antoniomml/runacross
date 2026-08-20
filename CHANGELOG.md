@@ -7,6 +7,10 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- GitHub Actions trusted publishing to PyPI.
+
 ## [0.1.0] - 2026-08-20
 
 ### Added

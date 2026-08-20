@@ -28,6 +28,9 @@ small fakes, `unittest.mock`, or Botocore `Stubber`.
 Open a pull request against `main`. Direct pushes, force pushes, and branch
 deletion are blocked. CI must pass before a pull request can be merged.
 
+PyPI uploads use GitHub Actions trusted publishing. Creating a GitHub Release
+or running the Publish workflow publishes the version in `pyproject.toml`.
+
 Before submitting a change:
 
 - add tests for behavior changes;

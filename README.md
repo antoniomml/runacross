@@ -1,6 +1,7 @@
 # RunAcross
 
 [![CI](https://github.com/antoniomml/runacross/actions/workflows/ci.yml/badge.svg)](https://github.com/antoniomml/runacross/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/runacross.svg)](https://pypi.org/project/runacross/)
 
 Concurrent Python execution across AWS accounts.
 
@@ -29,20 +30,15 @@ library primitive, not a scanner, CLI, scheduler, or credentials manager.
 
 ## Installation
 
-Install a tagged release from GitHub:
-
 ```bash
-pip install git+https://github.com/antoniomml/runacross.git@v0.1.0
+pip install runacross
 ```
 
-The package is prepared for PyPI but has not been published yet. For
-development from a local clone:
+RunAcross requires Python 3.10 or later. For development from a local clone:
 
 ```bash
 python -m pip install -e ".[dev]"
 ```
-
-RunAcross requires Python 3.10 or later.
 
 ## Quickstart
 
