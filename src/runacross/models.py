@@ -29,6 +29,14 @@ class Account:
         if self.email is not None and not isinstance(self.email, str):
             raise TypeError("account email must be a string or None")
 
+    def __repr__(self) -> str:
+        parts = [f"id={self.id!r}"]
+        if self.name is not None:
+            parts.append(f"name={self.name!r}")
+        if self.email is not None:
+            parts.append("email=<redacted>")
+        return f"{type(self).__name__}({', '.join(parts)})"
+
 
 AccountInput = str | Account
 

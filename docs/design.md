@@ -65,6 +65,7 @@ def map_accounts(
     role_name: str,
     role_session_name: str = "runacross",
     external_id: str | None = None,
+    duration_seconds: int | None = None,
     source_session: boto3.Session | None = None,
     botocore_config: Config | None = None,
     max_workers: int = 10,
@@ -77,6 +78,7 @@ not needed in 0.1, but this boundary leaves room for one later.
 
 Account strings are converted to immutable `Account` values. Account IDs must
 contain exactly 12 ASCII digits. Inputs are not silently deduplicated.
+`Account.__repr__` redacts `email` when that field is present.
 
 `AccountResult[T]` contains the account, value or exception, elapsed duration,
 and failure phase. `ExecutionPhase` distinguishes `assume_role` from `worker`.
@@ -95,13 +97,14 @@ are raised directly.
 For non-empty input:
 
 1. Create or accept the source Boto3 Session in the calling thread.
-2. Create one low-level STS client before opening the pool.
-3. Submit one task per account to `ThreadPoolExecutor`.
-4. Each task calls AssumeRole through the shared STS client.
-5. The task creates a new Boto3 Session from the temporary credentials.
-6. The task calls `function(session, account)` in the same worker thread.
-7. The calling thread consumes futures with `as_completed`.
-8. Results are placed into their original input positions.
+2. Reject a source Session that has no Region.
+3. Create one low-level STS client before opening the pool.
+4. Submit one task per account to `ThreadPoolExecutor`.
+5. Each task calls AssumeRole through the shared STS client.
+6. The task creates a new Boto3 Session from the temporary credentials.
+7. The task calls `function(session, account)` in the same worker thread.
+8. The calling thread consumes futures with `as_completed`.
+9. Results are placed into their original input positions.
 
 Empty input returns an empty `RunResults` without resolving credentials or
 creating AWS clients.
@@ -142,14 +145,18 @@ With no `source_session`, RunAcross creates `boto3.Session()` and therefore
 inherits the normal credential provider chain. A caller can supply a configured
 Session, for example one using an AWS profile.
 
-RunAcross sends `ExternalId` only when provided. The default role session name
-is the predictable value `runacross`; callers whose trust policies require a
-specific value can override it. No credentials are returned or persisted, and
-RunAcross does not deliberately add them to logs. Callback exception messages
-are user-controlled and must not contain secrets.
+RunAcross sends `ExternalId` only when provided. `DurationSeconds` is omitted
+unless `duration_seconds` is supplied; valid values are 900-43200 seconds and
+remain subject to the target role's maximum session duration. The default role
+session name is the predictable value `runacross`; callers whose trust policies
+require a specific value can override it. No credentials are returned or
+persisted, and RunAcross does not deliberately add them to logs. Callback
+exception messages are user-controlled and must not contain secrets.
 
-The target Session inherits the source Session's selected Region. Temporary
-credentials are not refreshable in 0.1 and normally expire after one hour.
+The source Session must have a Region; `map_accounts` raises `ValueError`
+before creating clients if it does not. The target Session inherits that
+Region. Temporary credentials are not refreshable in 0.1 and expire after the
+assumed session lifetime.
 
 RunAcross-owned clients use Botocore standard retries with three total attempts.
 A provided `botocore_config` is merged with the library defaults and takes

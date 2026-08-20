@@ -4,10 +4,11 @@
 
 ## Verification
 
-- [ ] `pytest`
+- [ ] `pytest --cov=runacross --cov-report=term-missing --cov-fail-under=90`
 - [ ] `ruff check .`
 - [ ] `ruff format --check .`
 - [ ] `mypy src/`
+- [ ] `python -m pip_audit`
 - [ ] Documentation updated when behavior changed
 
 ## Security

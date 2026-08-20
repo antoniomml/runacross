@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "runacross"
-version = "0.1.0"
+version = "0.1.2"
 description = "Concurrent Python execution across AWS accounts."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -48,7 +48,9 @@ Changelog = "https://github.com/antoniomml/runacross/blob/main/CHANGELOG.md"
 dev = [
     "build>=1.2",
     "mypy>=1.17",
+    "pip-audit>=2.9",
     "pytest>=8.4",
+    "pytest-cov>=6",
     "ruff>=0.12",
     "twine>=6",
 ]

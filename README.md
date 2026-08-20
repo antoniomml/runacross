@@ -107,7 +107,11 @@ Organizations `State` is `ACTIVE`.
 
 Call `list_accounts()` without an ID when that guard is not needed.
 Discovered `Account` objects include the Organizations name and root email
-address; treat those fields as sensitive.
+address; treat those fields as sensitive. `Account` redacts the email in
+`repr()` output, but the value remains on the object.
+
+See `examples/organization_accounts.py` for a complete discovery-plus-execution
+script.
 
 ## Handling failures
 
@@ -204,11 +208,26 @@ results = map_accounts(
 )
 ```
 
+The source Session must have a Region. RunAcross copies it onto each assumed
+Session and raises `ValueError` before calling STS if it is missing. Configure
+`AWS_DEFAULT_REGION`, the profile's region, or `boto3.Session(region_name=...)`.
+
 The target role must trust the source identity, and the source identity must
 be allowed to call `sts:AssumeRole`.
 
 Assumed Sessions in 0.1 do not refresh automatically. Callbacks should finish
-within the STS session lifetime, normally one hour.
+within the STS session lifetime, which defaults to one hour. Pass
+`duration_seconds` (900-43200, still subject to the role maximum) to request a
+shorter or longer session:
+
+```python
+results = map_accounts(
+    who_am_i,
+    accounts=accounts,
+    role_name="SecurityAuditRole",
+    duration_seconds=900,
+)
+```
 
 ## IAM permissions
 

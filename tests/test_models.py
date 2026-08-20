@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from runacross import Account, AccountResult, ExecutionPhase, RunResults
+from runacross import Account, AccountResult, ExecutionPhase, RunResults, __version__
 from runacross.models import coerce_accounts
 
 
@@ -31,6 +31,25 @@ def test_account_accepts_valid_id_and_metadata() -> None:
     assert account.id == "123456789012"
     assert account.name == "Production"
     assert account.email == "aws@example.com"
+
+
+def test_account_repr_redacts_email() -> None:
+    account = Account(
+        id="123456789012",
+        name="Production",
+        email="aws@example.com",
+    )
+
+    text = repr(account)
+
+    assert "aws@example.com" not in text
+    assert "email=<redacted>" in text
+    assert "Production" in text
+    assert "123456789012" in text
+
+
+def test_account_repr_omits_absent_email() -> None:
+    assert "email" not in repr(Account(id="123456789012"))
 
 
 def test_account_is_immutable() -> None:
@@ -157,3 +176,8 @@ def test_empty_run_results_is_valid() -> None:
     assert list(results) == []
     assert results.success_count == 0
     assert results.failure_count == 0
+
+
+def test_package_version_is_a_non_empty_string() -> None:
+    assert isinstance(__version__, str)
+    assert __version__
