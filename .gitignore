@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.python-version
+
+# Environments
+.venv/
+venv/
+
+# Tests and tooling
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Packaging
+build/
+dist/
+
+# Credentials and local configuration
+.env
+.env.*
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+
