@@ -61,7 +61,7 @@ class ExecutionPhase(str, Enum):
     WORKER = "worker"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class AccountResult(Generic[T_co]):
     """The outcome of executing a callback for one AWS account."""
 

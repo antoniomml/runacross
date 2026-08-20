@@ -108,6 +108,8 @@ that it matches the expected ID and then returns accounts whose current
 Organizations `State` is `ACTIVE`.
 
 Call `list_accounts()` without an ID when that guard is not needed.
+Discovered `Account` objects include the Organizations name and root email
+address; treat those fields as sensitive.
 
 ## Handling failures
 
