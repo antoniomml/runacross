@@ -8,13 +8,12 @@ privileged cross-account roles. Security reports should be treated carefully.
 Do not include credentials, tokens, account email addresses, or other sensitive
 AWS data in a public issue.
 
-Before the repository is published, a private reporting channel must be
-configured. GitHub Private Vulnerability Reporting is the preferred channel
-when it is enabled for the repository. Until a private channel exists, do not
-publish a report containing exploit details or sensitive data.
+Report vulnerabilities privately through
+[GitHub Private Vulnerability Reporting](https://github.com/antoniomml/runacross/security/advisories/new).
+Do not open a public issue for exploit details or sensitive data.
 
-The project does not currently publish a security email address. No address
-should be inferred from package metadata or contributor profiles.
+The project does not publish a security email address. No address should be
+inferred from package metadata or contributor profiles.
 
 ## Security properties
 
@@ -33,6 +32,11 @@ Identity Center caches, or execute a configured `credential_process`.
 Callbacks are arbitrary user code and may access other services. Callback
 exception messages are included in DEBUG logs, so applications must not place
 credentials or secrets in exception text.
+
+`list_accounts()` copies account names and root email addresses returned by
+AWS Organizations into `Account` objects. Treat those fields as sensitive:
+do not log them at DEBUG, print them in shared output, or include them in
+issues.
 
 Applications remain responsible for least-privilege source and target IAM
 policies, target-role trust policies, dependency updates, logging

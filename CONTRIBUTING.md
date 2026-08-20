@@ -6,7 +6,7 @@ understand.
 ## Development setup
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/antoniomml/runacross.git
 cd runacross
 python3 -m venv .venv
 source .venv/bin/activate

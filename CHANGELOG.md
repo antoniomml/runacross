@@ -16,3 +16,7 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - Optional active-account discovery through AWS Organizations.
 - Python 3.10-3.14 support, tests, documentation, and CI.
 
+### Fixed
+
+- Constructing subscripted `AccountResult[T](...)` on Python 3.10.
+
