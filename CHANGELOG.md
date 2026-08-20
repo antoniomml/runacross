@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-20
+
 ### Added
 
 - Initial `Account`, `AccountResult`, and `RunResults` models.
@@ -20,3 +22,5 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - Constructing subscripted `AccountResult[T](...)` on Python 3.10.
 
+[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/antoniomml/runacross/releases/tag/v0.1.0
