@@ -54,6 +54,7 @@ def test_assume_role_sends_expected_parameters_and_creates_session() -> None:
         role_name="SecurityAuditRole",
         role_session_name="runacross",
         external_id="shared-external-id",
+        duration_seconds=None,
         region_name="eu-west-1",
     )
 
@@ -82,6 +83,7 @@ def test_assume_role_omits_external_id_when_not_provided() -> None:
         role_name="SecurityAuditRole",
         role_session_name="runacross",
         external_id=None,
+        duration_seconds=None,
         region_name=None,
     )
 
@@ -100,6 +102,7 @@ def test_validate_assume_role_options_rejects_invalid_session_names(
             role_name="SecurityAuditRole",
             role_session_name=role_session_name,
             external_id=None,
+            duration_seconds=None,
         )
 
 
@@ -124,6 +127,7 @@ def test_validate_assume_role_options_rejects_invalid_role_names(
             role_name=role_name,
             role_session_name="runacross",
             external_id=None,
+            duration_seconds=None,
         )
 
 
@@ -133,6 +137,7 @@ def test_validate_assume_role_options_rejects_invalid_external_id() -> None:
             role_name="SecurityAuditRole",
             role_session_name="runacross",
             external_id="contains spaces",
+            duration_seconds=None,
         )
 
 
@@ -165,3 +170,70 @@ def test_user_client_config_takes_precedence() -> None:
         "total_max_attempts": 7,
     }
     assert config.max_pool_connections == 50
+
+
+def test_assume_role_sends_duration_seconds_when_provided() -> None:
+    client = RecordingStsClient()
+
+    assume_role_session(
+        client,
+        Account(id="123456789012"),
+        role_name="SecurityAuditRole",
+        role_session_name="runacross",
+        external_id=None,
+        duration_seconds=900,
+        region_name="eu-west-1",
+    )
+
+    assert client.requests[0]["DurationSeconds"] == 900
+
+
+def test_assume_role_omits_duration_seconds_when_not_provided() -> None:
+    client = RecordingStsClient()
+
+    assume_role_session(
+        client,
+        Account(id="123456789012"),
+        role_name="SecurityAuditRole",
+        role_session_name="runacross",
+        external_id=None,
+        duration_seconds=None,
+        region_name="eu-west-1",
+    )
+
+    assert "DurationSeconds" not in client.requests[0]
+
+
+@pytest.mark.parametrize("duration_seconds", [899, 43201])
+def test_validate_assume_role_options_rejects_duration_out_of_range(
+    duration_seconds: int,
+) -> None:
+    with pytest.raises(ValueError, match="duration_seconds"):
+        validate_assume_role_options(
+            role_name="SecurityAuditRole",
+            role_session_name="runacross",
+            external_id=None,
+            duration_seconds=duration_seconds,
+        )
+
+
+def test_validate_assume_role_options_rejects_boolean_duration() -> None:
+    with pytest.raises(TypeError, match="duration_seconds"):
+        validate_assume_role_options(
+            role_name="SecurityAuditRole",
+            role_session_name="runacross",
+            external_id=None,
+            duration_seconds=True,  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize("duration_seconds", [900, 3600, 43200])
+def test_validate_assume_role_options_accepts_duration_bounds(
+    duration_seconds: int,
+) -> None:
+    validate_assume_role_options(
+        role_name="SecurityAuditRole",
+        role_session_name="runacross",
+        external_id=None,
+        duration_seconds=duration_seconds,
+    )

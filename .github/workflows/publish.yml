@@ -3,7 +3,6 @@ name: Publish
 on:
   release:
     types: [published]
-  workflow_dispatch:
 
 concurrency:
   group: publish
@@ -22,8 +21,33 @@ jobs:
           python-version: "3.14"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install build twine
+      - name: Check package version matches release tag
+        run: |
+          python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          tag = "${{ github.event.release.tag_name }}"
+          expected = f"v{version}"
+          if tag != expected:
+              raise SystemExit(
+                  f"release tag {tag!r} does not match package version {expected!r}"
+              )
+          PY
       - run: python -m build
       - run: python -m twine check dist/*
+      - name: Check wheel version matches release tag
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          tag = "${{ github.event.release.tag_name }}"
+          version = tag[1:] if tag.startswith("v") else tag
+          wheels = list(Path("dist").glob(f"runacross-{version}-*.whl"))
+          if not wheels:
+              raise SystemExit(f"no wheel found for version {version}")
+          PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
@@ -43,5 +67,3 @@ jobs:
           name: dist
           path: dist
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
-        with:
-          skip-existing: true

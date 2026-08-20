@@ -36,7 +36,9 @@ credentials or secrets in exception text.
 `list_accounts()` copies account names and root email addresses returned by
 AWS Organizations into `Account` objects. Treat those fields as sensitive:
 do not log them at DEBUG, print them in shared output, or include them in
-issues.
+issues. `Account.__repr__` redacts `email` so accidental `print` or DEBUG
+logging of the object does not expose the root address; the value is still
+present on `account.email` for callers that need it.
 
 Applications remain responsible for least-privilege source and target IAM
 policies, target-role trust policies, dependency updates, logging

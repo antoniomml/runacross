@@ -38,6 +38,7 @@ def map_accounts(
     role_name: str,
     role_session_name: str = "runacross",
     external_id: str | None = None,
+    duration_seconds: int | None = None,
     source_session: Session | None = None,
     botocore_config: Config | None = None,
     max_workers: int = 10,
@@ -55,12 +56,19 @@ def map_accounts(
         role_name=role_name,
         role_session_name=role_session_name,
         external_id=external_id,
+        duration_seconds=duration_seconds,
     )
     target_accounts = coerce_accounts(accounts)
     if not target_accounts:
         return RunResults()
 
     session = source_session if source_session is not None else boto3.Session()
+    source_region = session.region_name
+    if not source_region:
+        raise ValueError(
+            "source session must have a region; set AWS_DEFAULT_REGION, "
+            "a profile region, or pass a Session with region_name"
+        )
     client_config = build_client_config(
         max_pool_connections=max_workers,
         user_config=botocore_config,
@@ -69,7 +77,6 @@ def map_accounts(
         StsClient,
         session.client("sts", config=client_config),
     )
-    source_region = session.region_name
 
     ordered: list[AccountResult[T] | None] = [None] * len(target_accounts)
     with ThreadPoolExecutor(
@@ -85,6 +92,7 @@ def map_accounts(
                 role_name=role_name,
                 role_session_name=role_session_name,
                 external_id=external_id,
+                duration_seconds=duration_seconds,
                 region_name=source_region,
             ): index
             for index, account in enumerate(target_accounts)
@@ -104,7 +112,8 @@ def _execute_account(
     role_name: str,
     role_session_name: str,
     external_id: str | None,
-    region_name: str | None,
+    duration_seconds: int | None,
+    region_name: str,
 ) -> AccountResult[T]:
     started_at = perf_counter()
     logger.debug("Assuming role into account %s", account.id)
@@ -116,6 +125,7 @@ def _execute_account(
             role_name=role_name,
             role_session_name=role_session_name,
             external_id=external_id,
+            duration_seconds=duration_seconds,
             region_name=region_name,
         )
     except Exception as error:

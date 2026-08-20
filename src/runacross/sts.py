@@ -13,6 +13,8 @@ _ROLE_SESSION_NAME_PATTERN = re.compile(r"[A-Za-z0-9_+=,.@-]{2,64}\Z")
 _EXTERNAL_ID_PATTERN = re.compile(r"[A-Za-z0-9_+=,.@:/-]{2,1224}\Z")
 _ROLE_NAME_PATTERN = re.compile(r"[A-Za-z0-9_+=,.@-]{1,64}\Z")
 _ROLE_PATH_PATTERN = re.compile(r"[\x21-\x7e]*\Z")
+_MIN_DURATION_SECONDS = 900
+_MAX_DURATION_SECONDS = 43200
 
 
 class _ClientMeta(Protocol):
@@ -50,6 +52,7 @@ def validate_assume_role_options(
     role_name: str,
     role_session_name: str,
     external_id: str | None,
+    duration_seconds: int | None,
 ) -> None:
     """Validate global AssumeRole options before concurrent work starts."""
 
@@ -93,6 +96,15 @@ def validate_assume_role_options(
                 "letters, digits, or _+=,.@:/-"
             )
 
+    if duration_seconds is not None:
+        if isinstance(duration_seconds, bool) or not isinstance(duration_seconds, int):
+            raise TypeError("duration_seconds must be an integer or None")
+        if (
+            duration_seconds < _MIN_DURATION_SECONDS
+            or duration_seconds > _MAX_DURATION_SECONDS
+        ):
+            raise ValueError("duration_seconds must be between 900 and 43200")
+
 
 def build_role_arn(account: Account, role_name: str, partition: str) -> str:
     """Build an IAM role ARN for an account and AWS partition."""
@@ -107,6 +119,7 @@ def assume_role_session(
     role_name: str,
     role_session_name: str,
     external_id: str | None,
+    duration_seconds: int | None,
     region_name: str | None,
 ) -> Session:
     """Assume a role and create a new Session for one account."""
@@ -121,6 +134,8 @@ def assume_role_session(
     }
     if external_id is not None:
         request["ExternalId"] = external_id
+    if duration_seconds is not None:
+        request["DurationSeconds"] = duration_seconds
 
     response = sts_client.assume_role(**request)
     credentials = response["Credentials"]

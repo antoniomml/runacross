@@ -25,6 +25,7 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy src/
+      - run: python -m pip_audit
       - run: python -m build
       - run: python -m twine check dist/*
       - run: python -m venv /tmp/runacross-wheel
@@ -51,5 +52,5 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev]"
-      - run: pytest
+      - run: pytest --cov=runacross --cov-report=term-missing --cov-fail-under=90
 

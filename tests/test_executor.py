@@ -182,6 +182,21 @@ def test_empty_accounts_do_not_create_an_aws_client() -> None:
     assert fake_source.client_calls == []
 
 
+def test_empty_accounts_do_not_require_a_source_region() -> None:
+    source, fake_source = source_session()
+    fake_source.region_name = None
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=[],
+        role_name="SecurityAuditRole",
+        source_session=source,
+    )
+
+    assert len(results) == 0
+    assert fake_source.client_calls == []
+
+
 def test_runacross_configures_the_shared_sts_client() -> None:
     source, fake_source = source_session()
 
@@ -257,3 +272,32 @@ def test_user_botocore_config_overrides_runacross_defaults() -> None:
         "total_max_attempts": 8,
     }
     assert config.max_pool_connections == 50
+
+
+def test_map_accounts_requires_a_source_region() -> None:
+    source, fake_source = source_session()
+    fake_source.region_name = None
+
+    with pytest.raises(ValueError, match="source session must have a region"):
+        map_accounts(
+            lambda _session, account: account.id,
+            accounts=["111111111111"],
+            role_name="SecurityAuditRole",
+            source_session=source,
+        )
+
+    assert fake_source.client_calls == []
+
+
+def test_map_accounts_sends_duration_seconds() -> None:
+    source, fake_source = source_session()
+
+    map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        role_name="SecurityAuditRole",
+        source_session=source,
+        duration_seconds=1800,
+    )
+
+    assert fake_source.sts_client.requests[0]["DurationSeconds"] == 1800

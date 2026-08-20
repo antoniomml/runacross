@@ -16,10 +16,11 @@ python -m pip install -e ".[dev]"
 Run the complete local checks:
 
 ```bash
-pytest
+pytest --cov=runacross --cov-report=term-missing --cov-fail-under=90
 ruff check .
 ruff format --check .
 mypy src/
+python -m pip_audit
 ```
 
 Tests must not require real AWS credentials or make live AWS calls. Prefer
@@ -29,7 +30,10 @@ Open a pull request against `main`. Direct pushes, force pushes, and branch
 deletion are blocked. CI must pass before a pull request can be merged.
 
 PyPI uploads use GitHub Actions trusted publishing. Creating a GitHub Release
-or running the Publish workflow publishes the version in `pyproject.toml`.
+whose tag is `v` plus the version in `pyproject.toml` publishes that version.
+The Publish workflow no longer accepts `workflow_dispatch`, and it does not
+skip an existing PyPI version. The `pypi` GitHub Environment only allows
+deployments from tags matching `v*`.
 
 Before submitting a change:
 
