@@ -25,10 +25,15 @@ mypy src/
 Tests must not require real AWS credentials or make live AWS calls. Prefer
 small fakes, `unittest.mock`, or Botocore `Stubber`.
 
+Open a pull request against `main`. Direct pushes, force pushes, and branch
+deletion are blocked. CI must pass before a pull request can be merged.
+
 Before submitting a change:
 
 - add tests for behavior changes;
 - update user-facing documentation when the API changes;
 - avoid new runtime dependencies unless the standard library is insufficient;
 - do not include credentials, `.env` files, generated artifacts, or IDE state.
+
+Report vulnerabilities through [SECURITY.md](SECURITY.md), not a public issue.
 

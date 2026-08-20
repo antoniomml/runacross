@@ -10,6 +10,16 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
+authors = [
+    { name = "Antonio Milla" },
+]
+keywords = [
+    "aws",
+    "boto3",
+    "multi-account",
+    "organizations",
+    "sts",
+]
 dependencies = [
     "boto3>=1.40.40",
 ]
@@ -27,6 +37,12 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://github.com/antoniomml/runacross"
+Repository = "https://github.com/antoniomml/runacross"
+Issues = "https://github.com/antoniomml/runacross/issues"
+Changelog = "https://github.com/antoniomml/runacross/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [

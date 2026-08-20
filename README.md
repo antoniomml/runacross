@@ -1,6 +1,8 @@
 # RunAcross
 
-Concurrent Python execution across AWS accounts and regions.
+[![CI](https://github.com/antoniomml/runacross/actions/workflows/ci.yml/badge.svg)](https://github.com/antoniomml/runacross/actions/workflows/ci.yml)
+
+Concurrent Python execution across AWS accounts.
 
 RunAcross handles STS AssumeRole, concurrent execution, error isolation and
 result aggregation so your code can focus on the AWS operation itself.
@@ -27,17 +29,17 @@ library primitive, not a scanner, CLI, scheduler, or credentials manager.
 
 ## Installation
 
-The package is prepared for PyPI but has not been published yet. After the
-first release, installation will be:
+Install a tagged release from GitHub:
 
 ```bash
-pip install runacross
+pip install git+https://github.com/antoniomml/runacross.git@v0.1.0
 ```
 
-For development from a local clone:
+The package is prepared for PyPI but has not been published yet. For
+development from a local clone:
 
 ```bash
-python -m pip install -e .
+python -m pip install -e ".[dev]"
 ```
 
 RunAcross requires Python 3.10 or later.
