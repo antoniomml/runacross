@@ -9,7 +9,7 @@ documentation available on August 20, 2026.
 RunAcross addresses a real and recurring pattern:
 
 ```text
-accounts -> AssumeRole -> boto3 Session -> concurrent callback -> results
+accounts -> Role or Profile -> boto3 Session -> concurrent callback -> results
 ```
 
 The pattern is useful, but it is not new. The closest existing projects are:
@@ -49,8 +49,9 @@ gap is a small, maintained, permissively licensed library with:
 
 - a direct function API instead of decorators, command classes, or plugins;
 - explicit accounts, with Organizations kept as an optional source;
-- typed, ordered, per-account results;
-- clear AssumeRole versus callback failure phases;
+- typed, ordered, per-account and per-account-Region results;
+- clear authentication versus callback failure phases;
+- Role and Profile as parallel ways to obtain a Session;
 - no CLI, scanner, policy language, scheduler, database, or infrastructure.
 
 That is a differentiation in API quality and scope, not a new category.
@@ -103,8 +104,10 @@ and Region, shared with several other STS operations. Downstream service quotas
 are often the practical limit.
 
 Temporary credentials copied into a new Boto3 Session do not refresh
-automatically. RunAcross 0.1.0 therefore targets bounded callbacks that finish
-within the assumed session lifetime.
+automatically. RunAcross therefore targets bounded callbacks that finish
+within the assumed session lifetime. `Profile` uses IAM Identity Center or
+other named profiles through Boto3 and does not implement a second login
+flow.
 
 AWS Lambda supplies execution-role credentials through the normal provider
 chain. AWS recommends packaging the application's Boto3 dependency rather than
@@ -147,8 +150,8 @@ credentials determine the organization. RunAcross can optionally compare an
 expected `o-...` ID with `DescribeOrganization` before listing accounts, which
 acts as a safety guard.
 
-Multi-Region execution is intentionally deferred. Future region discovery
-should use Account Management `ListRegions` or an assumed account's EC2
-`DescribeRegions`, treating only enabled states as usable. Boto3 endpoint
-metadata alone does not describe which Regions an account has enabled.
+Multi-Region execution uses `map_account_regions`. Region discovery uses
+Account Management `ListRegions`, treating `ENABLED` and `ENABLED_BY_DEFAULT`
+as usable. Boto3 endpoint metadata alone does not describe which Regions an
+account has enabled.
 

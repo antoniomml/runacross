@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "runacross"
-version = "0.1.2"
-description = "Concurrent Python execution across AWS accounts."
+version = "0.2.0"
+description = "Concurrent Python execution across AWS accounts and regions."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -17,6 +17,7 @@ keywords = [
     "aws",
     "boto3",
     "multi-account",
+    "multi-region",
     "organizations",
     "sts",
 ]

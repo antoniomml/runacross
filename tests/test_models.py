@@ -2,8 +2,17 @@ from __future__ import annotations
 
 import pytest
 
-from runacross import Account, AccountResult, ExecutionPhase, RunResults, __version__
-from runacross.models import coerce_accounts
+from runacross import (
+    Account,
+    AccountRegion,
+    AccountRegionResult,
+    AccountResult,
+    ExecutionPhase,
+    RegionResults,
+    RunResults,
+    __version__,
+)
+from runacross.models import coerce_accounts, coerce_regions, exclude_accounts
 
 
 @pytest.mark.parametrize(
@@ -181,3 +190,72 @@ def test_empty_run_results_is_valid() -> None:
 def test_package_version_is_a_non_empty_string() -> None:
     assert isinstance(__version__, str)
     assert __version__
+
+
+def test_account_region_rejects_invalid_region() -> None:
+    with pytest.raises(ValueError, match="Region name"):
+        AccountRegion(account=Account(id="111111111111"), region="not a region")
+
+
+def test_coerce_regions_rejects_a_single_string() -> None:
+    with pytest.raises(TypeError, match="iterable"):
+        coerce_regions("eu-west-1")
+
+
+def test_coerce_regions_accepts_gov_and_standard_names() -> None:
+    assert coerce_regions(["eu-west-1", "us-gov-west-1", "ap-southeast-2"]) == (
+        "eu-west-1",
+        "us-gov-west-1",
+        "ap-southeast-2",
+    )
+
+
+def test_exclude_accounts_preserves_order() -> None:
+    accounts = coerce_accounts(["111111111111", "222222222222", "333333333333"])
+
+    assert exclude_accounts(accounts, ["222222222222"]) == (
+        Account(id="111111111111"),
+        Account(id="333333333333"),
+    )
+
+
+def test_account_region_result_exposes_target_identity() -> None:
+    target = AccountRegion(account=Account(id="111111111111"), region="eu-west-1")
+    result = AccountRegionResult(
+        target=target,
+        value="ok",
+        error=None,
+        duration_seconds=0.1,
+        phase=None,
+    )
+
+    assert result.account.id == "111111111111"
+    assert result.region == "eu-west-1"
+    assert result.unwrap() == "ok"
+    assert result.target is target
+
+
+def test_region_results_exposes_ordered_subsets_and_counts() -> None:
+    first = AccountRegionResult(
+        target=AccountRegion(account=Account(id="111111111111"), region="eu-west-1"),
+        value="first",
+        error=None,
+        duration_seconds=0.1,
+        phase=None,
+    )
+    failed = AccountRegionResult[str](
+        target=AccountRegion(account=Account(id="111111111111"), region="us-east-1"),
+        value=None,
+        error=RuntimeError("failed"),
+        duration_seconds=0.2,
+        phase=ExecutionPhase.WORKER,
+    )
+
+    results = RegionResults([first, failed])
+
+    assert list(results) == [first, failed]
+    assert results.successful == (first,)
+    assert results.failed == (failed,)
+    assert results.success_count == 1
+    assert results.failure_count == 1
+    assert repr(results) == "RegionResults(success_count=1, failure_count=1)"

@@ -7,7 +7,7 @@ import pytest
 from boto3.session import Session
 from botocore.config import Config
 
-from runacross import Account, ExecutionPhase, map_accounts
+from runacross import Account, ExecutionPhase, Profile, Role, map_accounts
 
 
 class FakeMeta:
@@ -98,7 +98,7 @@ def test_assume_role_error_is_isolated_to_its_account() -> None:
 
     assert results.success_count == 2
     assert isinstance(results[1].error, PermissionError)
-    assert results[1].phase is ExecutionPhase.ASSUME_ROLE
+    assert results[1].phase is ExecutionPhase.AUTH
 
 
 def test_results_preserve_input_order_after_out_of_order_completion() -> None:
@@ -248,6 +248,28 @@ def test_map_accounts_rejects_invalid_worker_count(max_workers: int) -> None:
         )
 
 
+def test_map_accounts_rejects_boolean_worker_count() -> None:
+    source, _ = source_session()
+
+    with pytest.raises(TypeError, match="integer"):
+        map_accounts(
+            lambda _session, account: account.id,
+            accounts=[],
+            role_name="SecurityAuditRole",
+            source_session=source,
+            max_workers=True,
+        )
+
+
+def test_map_accounts_rejects_non_callable_function() -> None:
+    with pytest.raises(TypeError, match="function must be callable"):
+        map_accounts(
+            "not-a-function",  # type: ignore[arg-type]
+            accounts=[],
+            role_name="SecurityAuditRole",
+        )
+
+
 def test_user_botocore_config_overrides_runacross_defaults() -> None:
     source, fake_source = source_session()
     user_config = Config(
@@ -301,3 +323,69 @@ def test_map_accounts_sends_duration_seconds() -> None:
     )
 
     assert fake_source.sts_client.requests[0]["DurationSeconds"] == 1800
+
+
+def test_map_accounts_accepts_auth_role() -> None:
+    source, _ = source_session()
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        auth=Role("SecurityAuditRole", source_session=source),
+    )
+
+    assert results[0].value == "111111111111"
+
+
+def test_map_accounts_rejects_auth_combined_with_role_name() -> None:
+    source, _ = source_session()
+
+    with pytest.raises(TypeError, match="do not combine auth"):
+        map_accounts(
+            lambda _session, account: account.id,
+            accounts=["111111111111"],
+            auth=Role("SecurityAuditRole", source_session=source),
+            role_name="SecurityAuditRole",
+        )
+
+
+def test_map_accounts_rejects_profile_combined_with_source_session() -> None:
+    source, _ = source_session()
+
+    with pytest.raises(TypeError, match="do not combine auth"):
+        map_accounts(
+            lambda _session, account: account.id,
+            accounts=["111111111111"],
+            auth=Profile("{account_id}-audit"),
+            source_session=source,
+        )
+
+
+def test_map_accounts_requires_auth_or_role_name() -> None:
+    with pytest.raises(TypeError, match="auth or role_name"):
+        map_accounts(
+            lambda _session, account: account.id,
+            accounts=["111111111111"],
+        )
+
+
+def test_map_accounts_exclude_accounts_skips_filtered_ids() -> None:
+    source, fake_source = source_session()
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111", "222222222222", "333333333333"],
+        role_name="SecurityAuditRole",
+        source_session=source,
+        exclude_accounts=["222222222222"],
+    )
+
+    assert [result.account.id for result in results] == [
+        "111111111111",
+        "333333333333",
+    ]
+    assumed_accounts = [
+        request["RoleArn"].split("::", 1)[1].split(":", 1)[0]
+        for request in fake_source.sts_client.requests
+    ]
+    assert assumed_accounts == ["111111111111", "333333333333"]

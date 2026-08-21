@@ -3,8 +3,17 @@
 import logging
 from importlib.metadata import PackageNotFoundError, version
 
-from .executor import map_accounts
-from .models import Account, AccountResult, ExecutionPhase, RunResults
+from .auth import Profile, Role
+from .executor import map_account_regions, map_accounts
+from .models import (
+    Account,
+    AccountRegion,
+    AccountRegionResult,
+    AccountResult,
+    ExecutionPhase,
+    RegionResults,
+    RunResults,
+)
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -15,9 +24,15 @@ except PackageNotFoundError:  # pragma: no cover
 
 __all__ = [
     "Account",
+    "AccountRegion",
+    "AccountRegionResult",
     "AccountResult",
     "ExecutionPhase",
+    "Profile",
+    "RegionResults",
+    "Role",
     "RunResults",
     "__version__",
+    "map_account_regions",
     "map_accounts",
 ]

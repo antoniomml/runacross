@@ -15,10 +15,13 @@ Features should be added only when they preserve the small execution primitive.
 
 ## 0.2
 
-- Explicit account-by-Region execution.
-- Enabled-Region discovery.
-- Small account and Region filters.
-- A structured result identity for each account and Region pair.
+- Pluggable authentication: `Role` (AssumeRole) and `Profile` (named AWS CLI /
+  IAM Identity Center profiles), with `role_name=` kept as a `Role` shortcut.
+- Authentication failure phase renamed from `assume_role` to `auth`.
+- Explicit account-by-Region execution through `map_account_regions`.
+- Enabled-Region discovery through Account Management `ListRegions`.
+- Small account and Region exclude filters.
+- A structured `AccountRegion` result identity for each account and Region pair.
 
 ## 0.3 and later
 
@@ -33,4 +36,3 @@ Candidates requiring evidence from real usage:
 
 RunAcross does not plan to become a CLI, scanner, policy engine, distributed
 workflow system, credential store, or infrastructure deployment framework.
-
