@@ -149,3 +149,21 @@ def assume_role_session(
             region_name=region_name,
         ),
     )
+
+
+def copy_session(session: Session, region_name: str) -> Session:
+    """Create a new Session with the same credentials and a specific Region."""
+
+    credentials = session.get_credentials()
+    if credentials is None:
+        raise RuntimeError("session has no credentials")
+    frozen = credentials.get_frozen_credentials()
+    return cast(
+        Session,
+        boto3.Session(
+            aws_access_key_id=frozen.access_key,
+            aws_secret_access_key=frozen.secret_key,
+            aws_session_token=frozen.token,
+            region_name=region_name,
+        ),
+    )

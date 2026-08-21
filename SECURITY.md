@@ -29,6 +29,8 @@ RunAcross is designed to:
 
 The standard Boto3 provider chain may read local AWS configuration, use IAM
 Identity Center caches, or execute a configured `credential_process`.
+`Profile` authenticates only through those named profiles; RunAcross does not
+implement a separate login or profile-discovery mechanism.
 Callbacks are arbitrary user code and may access other services. Callback
 exception messages are included in DEBUG logs, so applications must not place
 credentials or secrets in exception text.

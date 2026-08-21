@@ -3,24 +3,29 @@
 ## Problem
 
 AWS automation across many accounts repeatedly rebuilds the same machinery:
-validate accounts, assume a role, create Boto3 sessions, schedule concurrent
+validate accounts, authenticate, create Boto3 sessions, schedule concurrent
 work, isolate failures, and aggregate results. That plumbing obscures the AWS
 operation the program is meant to perform.
 
-RunAcross turns the pattern into one synchronous Python primitive:
+RunAcross turns the pattern into synchronous Python primitives:
 
 ```text
-accounts -> futures -> AssumeRole -> Session -> callback -> results
+accounts -> Role or Profile -> Session -> callback -> results
+accounts x regions -> Role or Profile -> Session -> callback -> results
 ```
 
 ## Goals
 
-- Execute an arbitrary synchronous Python callback once per AWS account.
+- Execute an arbitrary synchronous Python callback once per AWS account, or
+  once per account and Region pair.
 - Accept account IDs or richer `Account` objects.
-- Use the standard Boto3 credential chain, with an optional source Session.
-- Isolate AssumeRole and callback failures by account.
+- Authenticate through `Role` (STS AssumeRole) or `Profile` (named AWS CLI /
+  IAM Identity Center profiles), without teaching the callback which was used.
+- Use the standard Boto3 credential chain, with an optional source Session on
+  `Role`.
+- Isolate authentication and callback failures by target.
 - Preserve input order while executing concurrently.
-- Preserve the callback return type as `RunResults[T]`.
+- Preserve the callback return type as `RunResults[T]` or `RegionResults[T]`.
 - Remain useful in scripts, CI, containers, EC2, ECS, and Lambda.
 - Keep the runtime dependency set and public API small.
 
@@ -28,14 +33,16 @@ accounts -> futures -> AssumeRole -> Session -> callback -> results
 
 RunAcross is not a scanner, CSPM, resource inventory, policy engine,
 credential store, workflow scheduler, CLI, or infrastructure deployment
-system. Version 0.1 does not provide async execution, multiprocessing,
-multi-Region fan-out, callback retries, hard timeouts, fail-fast behavior,
-automatic credential refresh, or advanced Organizations selectors.
+system. It does not guess profiles from `~/.aws/config`, run `aws sso login`,
+or mix Role and Profile in a single execution. Version 0.2 does not provide
+async execution, multiprocessing, callback retries, hard timeouts, fail-fast
+behavior, automatic credential refresh, or advanced Organizations selectors.
 
 ## Public API
 
 ```python
-from runacross import Account, RunResults, map_accounts
+from runacross import Account, Profile, Role, RunResults, map_accounts
+from runacross import map_account_regions
 
 
 def worker(session, account: Account) -> str:
@@ -49,65 +56,95 @@ results: RunResults[str] = map_accounts(
         "111111111111",
         Account(id="222222222222", name="Development"),
     ],
-    role_name="SecurityAuditRole",
-    role_session_name="runacross",
-    max_workers=10,
+    auth=Role("SecurityAuditRole"),
 )
 ```
 
-The initial signature is:
+`map_accounts` accepts either `auth=` or the 0.1 shortcut `role_name=`:
 
 ```python
 def map_accounts(
     function: Callable[[boto3.Session, Account], T],
     *,
     accounts: Iterable[str | Account],
-    role_name: str,
+    auth: Role | Profile | None = None,
+    role_name: str | None = None,
     role_session_name: str = "runacross",
     external_id: str | None = None,
     duration_seconds: int | None = None,
     source_session: boto3.Session | None = None,
     botocore_config: Config | None = None,
     max_workers: int = 10,
+    exclude_accounts: Iterable[str | Account] = (),
 ) -> RunResults[T]: ...
 ```
 
-`role_name` may contain an IAM role path. Role ARN construction is isolated
-internally and uses the STS client's partition. A public role ARN resolver is
-not needed in 0.1, but this boundary leaves room for one later.
+`Role.name` may contain an IAM role path. Role ARN construction is isolated
+internally and uses the STS client's partition.
+
+`Profile` requires exactly one of `pattern`, `mapping`, or `resolver`.
+Patterns may use `{account_id}` and `{name}`.
 
 Account strings are converted to immutable `Account` values. Account IDs must
 contain exactly 12 ASCII digits. Inputs are not silently deduplicated.
 `Account.__repr__` redacts `email` when that field is present.
 
 `AccountResult[T]` contains the account, value or exception, elapsed duration,
-and failure phase. `ExecutionPhase` distinguishes `assume_role` from `worker`.
+and failure phase. `ExecutionPhase` distinguishes `auth` from `worker`.
 `success` is based on the absence of an error, so a callback may successfully
-return `None`.
+return `None`. Version 0.1 used `assume_role` for the authentication phase.
 
 `RunResults[T]` is an immutable `Sequence` preserving input order. It exposes
 `successful`, `failed`, `success_count`, and `failure_count`.
 
+`map_account_regions` uses a three-argument callback and `RegionResults[T]`.
+Each item is an `AccountRegionResult` whose identity is `AccountRegion`.
+
+```python
+def map_account_regions(
+    function: Callable[[boto3.Session, Account, str], T],
+    *,
+    accounts: Iterable[str | Account],
+    auth: Role | Profile | None = None,
+    role_name: str | None = None,
+    regions: Iterable[str] | None = None,
+    exclude_accounts: Iterable[str | Account] = (),
+    exclude_regions: Iterable[str] = (),
+    discover_regions: bool = False,
+    ...
+) -> RegionResults[T]: ...
+```
+
+Explicit `regions` produce a Cartesian product (accounts outer, Regions
+inner). `discover_regions=True` lists enabled Regions per account after
+authentication. Combining both treats `regions` as an allowlist on the
+discovered set.
+
 ## Execution model
 
-`map_accounts` performs global validation before starting work. Invalid account
-IDs, role session names, worker counts, or other global configuration errors
-are raised directly.
+`map_accounts` and `map_account_regions` perform global validation before
+starting work. Invalid account IDs, Region names, role session names, worker
+counts, or other global configuration errors are raised directly.
 
 For non-empty input:
 
-1. Create or accept the source Boto3 Session in the calling thread.
-2. Reject a source Session that has no Region.
-3. Create one low-level STS client before opening the pool.
-4. Submit one task per account to `ThreadPoolExecutor`.
-5. Each task calls AssumeRole through the shared STS client.
-6. The task creates a new Boto3 Session from the temporary credentials.
-7. The task calls `function(session, account)` in the same worker thread.
+1. Resolve `auth` (`Role`/`Profile`, or `role_name=` as a `Role`).
+2. Apply `exclude_accounts` (and `exclude_regions` when present).
+3. Bind authentication in the calling thread (`Role` creates the shared STS
+   client here and rejects a source Session with no Region).
+4. For Region discovery, authenticate per account and call Account Management
+   `ListRegions` before submitting worker tasks.
+5. Submit one task per remaining target to `ThreadPoolExecutor`.
+6. Each task obtains a Session from the bound auth. `Role` assumes once per
+   account and copies credentials into a per-task Session for the target
+   Region.
+7. The task calls `function(session, account)` or
+   `function(session, account, region)` in the same worker thread.
 8. The calling thread consumes futures with `as_completed`.
 9. Results are placed into their original input positions.
 
-Empty input returns an empty `RunResults` without resolving credentials or
-creating AWS clients.
+Empty input after filters returns an empty result collection without resolving
+credentials or creating AWS clients.
 
 ## Concurrency
 
@@ -116,20 +153,20 @@ than multiprocessing or asyncio. The explicit default of 10 avoids Python's
 version-dependent, CPU-derived default. Users can lower or raise the value
 based on workload, service quotas, and environment limits.
 
-Boto3 Sessions and Resources are not shared. The source Session is used only
-to create the STS client before concurrency begins. Low-level clients are
-generally thread-safe; custom Botocore event hooks can invalidate that
-assumption. Each callback receives a Session unique to its account task.
+Boto3 Sessions and Resources are not shared. Each callback receives a Session
+unique to its task. The source Session on `Role` is used only to create the
+STS client before concurrency begins. Low-level clients are generally
+thread-safe; custom Botocore event hooks can invalidate that assumption.
 
 RunAcross does not expose the executor or implement a scheduler. It waits for
 all submitted work before returning.
 
 ## Error isolation
 
-Ordinary exceptions from AssumeRole and the callback become failed
-`AccountResult` values. A failed account does not cancel pending or running
-accounts. `KeyboardInterrupt`, `SystemExit`, and other `BaseException`
-subclasses are not converted into account failures.
+Ordinary exceptions from authentication and the callback become failed result
+values. A failed target does not cancel pending or running targets.
+`KeyboardInterrupt`, `SystemExit`, and other `BaseException` subclasses are
+not converted into account failures.
 
 The original exception type and message remain inspectable. RunAcross clears
 retained traceback frames before returning failures so results do not keep
@@ -139,13 +176,17 @@ are available through DEBUG logging at the point of failure.
 RunAcross does not retry an arbitrary callback. Botocore may retry individual
 AWS requests according to each client's configuration.
 
-## Authentication and STS
+## Authentication
 
-With no `source_session`, RunAcross creates `boto3.Session()` and therefore
-inherits the normal credential provider chain. A caller can supply a configured
-Session, for example one using an AWS profile.
+`Role` uses `boto3.Session()` when no `source_session` is provided and
+therefore inherits the normal credential provider chain. A caller can supply a
+configured Session, for example one using an AWS profile.
 
-RunAcross sends `ExternalId` only when provided. `DurationSeconds` is omitted
+`Profile` constructs `boto3.Session(profile_name=...)` per account. Missing
+profiles, expired IAM Identity Center sessions, and profiles without a Region
+are per-account `auth` failures.
+
+`Role` sends `ExternalId` only when provided. `DurationSeconds` is omitted
 unless `duration_seconds` is supplied; valid values are 900-43200 seconds and
 remain subject to the target role's maximum session duration. The default role
 session name is the predictable value `runacross`; callers whose trust policies
@@ -153,10 +194,8 @@ require a specific value can override it. No credentials are returned or
 persisted, and RunAcross does not deliberately add them to logs. Callback
 exception messages are user-controlled and must not contain secrets.
 
-The source Session must have a Region; `map_accounts` raises `ValueError`
-before creating clients if it does not. The target Session inherits that
-Region. Temporary credentials are not refreshable in 0.1 and expire after the
-assumed session lifetime.
+Temporary credentials copied into a new Boto3 Session do not refresh
+automatically. They expire after the assumed session lifetime.
 
 RunAcross-owned clients use Botocore standard retries with three total attempts.
 A provided `botocore_config` is merged with the library defaults and takes
@@ -189,11 +228,13 @@ other systems.
 
 ## Regions
 
-Version 0.1 invokes the callback once per account. Multi-Region execution will
-use a separate function, provisionally `map_account_regions`, rather than
-adding `regions` to `map_accounts`. A separate function keeps callback arity,
-result identity, and Cartesian-product behavior explicit.
+`map_accounts` invokes the callback once per account. Multi-Region execution
+uses `map_account_regions` rather than adding `regions` to `map_accounts`. A
+separate function keeps callback arity, result identity, and Cartesian-product
+behavior explicit.
 
-Future enabled-Region discovery must query AWS rather than relying only on
-Boto3 endpoint metadata. It is not required by the initial account primitive.
-
+Enabled-Region discovery uses Account Management `ListRegions` and treats
+`ENABLED` and `ENABLED_BY_DEFAULT` as usable. Boto3 endpoint metadata alone
+does not describe which Regions an account has enabled.
+`list_enabled_regions()` exposes that query for callers who want to choose
+Regions before execution.

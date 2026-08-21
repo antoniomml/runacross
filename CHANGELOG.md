@@ -7,6 +7,28 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-21
+
+### Added
+
+- `Role` and `Profile` authentication. `Role` assumes an IAM role in each
+  account; `Profile` uses named AWS CLI / IAM Identity Center profiles.
+- `map_account_regions` for explicit account-by-Region execution.
+- `AccountRegion`, `AccountRegionResult`, and `RegionResults`.
+- `list_enabled_regions()` using Account Management `ListRegions`.
+- `exclude_accounts` on both executors and `exclude_regions` on
+  `map_account_regions`.
+- `discover_regions=True` to expand each account to its enabled Regions.
+- Identity Center profile example.
+
+### Changed
+
+- Authentication failures now use `ExecutionPhase.AUTH` (`"auth"`). The 0.1
+  name `assume_role` is no longer emitted.
+- `map_accounts` accepts `auth=` as the primary way to choose Role or Profile.
+  `role_name=` remains as a shortcut for `Role`.
+- Package description covers accounts and Regions.
+
 ## [0.1.2] - 2026-08-20
 
 ### Added
@@ -42,6 +64,7 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - Constructing subscripted `AccountResult[T](...)` on Python 3.10.
 
-[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/antoniomml/runacross/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/antoniomml/runacross/compare/v0.1.0...v0.1.2
 [0.1.0]: https://github.com/antoniomml/runacross/releases/tag/v0.1.0

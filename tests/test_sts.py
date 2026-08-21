@@ -10,6 +10,7 @@ from runacross.sts import (
     assume_role_session,
     build_client_config,
     build_role_arn,
+    copy_session,
     validate_assume_role_options,
 )
 
@@ -72,6 +73,49 @@ def test_assume_role_sends_expected_parameters_and_creates_session() -> None:
     assert frozen.access_key == "temporary-access-key"
     assert frozen.secret_key == "temporary-secret-key"
     assert frozen.token == "temporary-session-token"
+
+
+def test_copy_session_uses_the_same_credentials_in_a_new_region() -> None:
+    client = RecordingStsClient()
+    session = assume_role_session(
+        client,
+        Account(id="123456789012"),
+        role_name="SecurityAuditRole",
+        role_session_name="runacross",
+        external_id=None,
+        duration_seconds=None,
+        region_name="eu-west-1",
+    )
+
+    copied = copy_session(session, "us-east-1")
+    credentials = copied.get_credentials()
+    assert credentials is not None
+    frozen = credentials.get_frozen_credentials()
+
+    assert copied is not session
+    assert copied.region_name == "us-east-1"
+    assert frozen.access_key == "temporary-access-key"
+    assert frozen.secret_key == "temporary-secret-key"
+    assert frozen.token == "temporary-session-token"
+
+
+def test_copy_session_rejects_a_session_without_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = RecordingStsClient()
+    session = assume_role_session(
+        client,
+        Account(id="123456789012"),
+        role_name="SecurityAuditRole",
+        role_session_name="runacross",
+        external_id=None,
+        duration_seconds=None,
+        region_name="eu-west-1",
+    )
+    monkeypatch.setattr(session, "get_credentials", lambda: None)
+
+    with pytest.raises(RuntimeError, match="no credentials"):
+        copy_session(session, "us-east-1")
 
 
 def test_assume_role_omits_external_id_when_not_provided() -> None:
