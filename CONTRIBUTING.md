@@ -26,8 +26,8 @@ python -m pip_audit
 Tests must not require real AWS credentials or make live AWS calls. Prefer
 small fakes, `unittest.mock`, or Botocore `Stubber`.
 
-Open a pull request against `main`. Direct pushes, force pushes, and branch
-deletion are blocked. CI must pass before a pull request can be merged.
+Open a pull request against `main`. The `main` branch blocks direct pushes,
+force pushes, and deletion. CI must pass before a pull request can be merged.
 
 PyPI uploads use GitHub Actions trusted publishing. Creating a GitHub Release
 whose tag is `v` plus the version in `pyproject.toml` publishes that version.
@@ -43,4 +43,3 @@ Before submitting a change:
 - do not include credentials, `.env` files, generated artifacts, or IDE state.
 
 Report vulnerabilities through [SECURITY.md](SECURITY.md), not a public issue.
-
