@@ -33,6 +33,36 @@ class RecordingCredentials:
         return object()
 
 
+class IdentitySession(RecordingSession):
+    def __init__(
+        self,
+        profile_name: str | None = None,
+        region_name: str | None = None,
+        *,
+        account_id: str = "111111111111",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(profile_name, region_name, **kwargs)
+        self.account_id = account_id
+        self.sts_calls = 0
+        self.identity_response: object = {
+            "Account": account_id,
+            "Arn": f"arn:aws:iam::{account_id}:user/test",
+            "UserId": "AIDATEST",
+        }
+
+    def client(self, service_name: str, **_kwargs: Any) -> Any:
+        del service_name
+        parent = self
+
+        class STS:
+            def get_caller_identity(self) -> object:
+                parent.sts_calls += 1
+                return parent.identity_response
+
+        return STS()
+
+
 def test_profile_requires_exactly_one_strategy() -> None:
     with pytest.raises(ValueError, match="exactly one"):
         Profile()
@@ -149,6 +179,11 @@ def test_map_accounts_uses_profile_pattern(monkeypatch: pytest.MonkeyPatch) -> N
         "111111111111-script-SecurityAudit",
         "222222222222-script-SecurityAudit",
     ]
+    assert [result.profile_name for result in results] == [
+        "111111111111-script-SecurityAudit",
+        "222222222222-script-SecurityAudit",
+    ]
+    assert [result.role_name for result in results] == [None, None]
     assert [session.profile_name for session in created] == [
         "111111111111-script-SecurityAudit",
         "222222222222-script-SecurityAudit",
@@ -268,3 +303,163 @@ def test_role_reporting_region_matches_source_session() -> None:
     ).bind(max_workers=1, botocore_config=None)
 
     assert bound.reporting_region() == "eu-west-1"
+
+
+def test_profile_rejects_non_bool_verify_account_id() -> None:
+    with pytest.raises(TypeError, match="verify_account_id must be a bool"):
+        Profile("{account_id}-audit", verify_account_id=1)  # type: ignore[arg-type]
+
+
+def test_verify_account_id_accepts_matching_caller_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[IdentitySession] = []
+
+    def fake_session(
+        profile_name: str | None = None,
+        region_name: str | None = None,
+        **kwargs: Any,
+    ) -> IdentitySession:
+        session = IdentitySession(
+            profile_name,
+            region_name,
+            account_id="111111111111",
+            **kwargs,
+        )
+        created.append(session)
+        return session
+
+    monkeypatch.setattr("runacross.auth.boto3.Session", fake_session)
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        auth=Profile("{account_id}-audit", verify_account_id=True),
+    )
+
+    assert results[0].success is True
+    assert results[0].profile_name == "111111111111-audit"
+    assert created[0].sts_calls == 1
+
+
+def test_verify_account_id_rejects_mismatched_caller_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_session(
+        profile_name: str | None = None,
+        region_name: str | None = None,
+        **kwargs: Any,
+    ) -> IdentitySession:
+        return IdentitySession(
+            profile_name,
+            region_name,
+            account_id="999999999999",
+            **kwargs,
+        )
+
+    monkeypatch.setattr("runacross.auth.boto3.Session", fake_session)
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        auth=Profile("{account_id}-audit", verify_account_id=True),
+    )
+
+    assert results[0].success is False
+    assert results[0].phase is ExecutionPhase.AUTH
+    assert results[0].profile_name == "111111111111-audit"
+    assert results[0].error is not None
+    assert "authenticated as account 999999999999" in str(results[0].error)
+    assert "expected 111111111111" in str(results[0].error)
+
+
+def test_verify_account_id_is_skipped_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[IdentitySession] = []
+
+    def fake_session(
+        profile_name: str | None = None,
+        region_name: str | None = None,
+        **kwargs: Any,
+    ) -> IdentitySession:
+        session = IdentitySession(profile_name, region_name, **kwargs)
+        created.append(session)
+        return session
+
+    monkeypatch.setattr("runacross.auth.boto3.Session", fake_session)
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        auth=Profile("{account_id}-audit"),
+    )
+
+    assert results[0].success is True
+    assert created[0].sts_calls == 0
+
+
+def test_missing_profile_mapping_keeps_auth_failure_without_a_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("runacross.auth.boto3.Session", RecordingSession)
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        auth=Profile(mapping={"222222222222": "other-audit"}),
+    )
+
+    assert results[0].success is False
+    assert results[0].phase is ExecutionPhase.AUTH
+    assert results[0].profile_name is None
+
+
+def test_verify_account_id_rejects_a_missing_account_field(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_session(
+        profile_name: str | None = None,
+        region_name: str | None = None,
+        **kwargs: Any,
+    ) -> IdentitySession:
+        session = IdentitySession(profile_name, region_name, **kwargs)
+        session.identity_response = {"Arn": "arn:aws:iam::111111111111:user/test"}
+        return session
+
+    monkeypatch.setattr("runacross.auth.boto3.Session", fake_session)
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        auth=Profile("{account_id}-audit", verify_account_id=True),
+    )
+
+    assert results[0].success is False
+    assert results[0].phase is ExecutionPhase.AUTH
+    assert results[0].error is not None
+    assert "did not return an Account" in str(results[0].error)
+
+
+def test_verify_account_id_rejects_a_non_mapping_identity_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_session(
+        profile_name: str | None = None,
+        region_name: str | None = None,
+        **kwargs: Any,
+    ) -> IdentitySession:
+        session = IdentitySession(profile_name, region_name, **kwargs)
+        session.identity_response = "not-a-mapping"
+        return session
+
+    monkeypatch.setattr("runacross.auth.boto3.Session", fake_session)
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        auth=Profile("{account_id}-audit", verify_account_id=True),
+    )
+
+    assert results[0].success is False
+    assert results[0].phase is ExecutionPhase.AUTH

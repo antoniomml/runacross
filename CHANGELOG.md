@@ -7,6 +7,15 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-26
+
+### Added
+
+- Optional `Profile(..., verify_account_id=True)` to confirm
+  `sts:GetCallerIdentity` matches the expected account ID.
+- `profile_name` and `role_name` on per-target results and in `to_dict()`
+  output, without credentials.
+
 ## [0.4.0] - 2026-08-26
 
 ### Added
@@ -101,7 +110,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - Constructing subscripted `AccountResult[T](...)` on Python 3.10.
 
-[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/antoniomml/runacross/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/antoniomml/runacross/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/antoniomml/runacross/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/antoniomml/runacross/compare/v0.2.0...v0.3.0

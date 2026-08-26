@@ -140,6 +140,18 @@ Profile(resolver=lambda account: f"sso-{account.id}")
 Exactly one of `pattern`, `mapping`, or `resolver` is required. Pattern
 placeholders are `{account_id}` and, if present on the `Account`, `{name}`.
 
+Pass `verify_account_id=True` to call `sts:GetCallerIdentity` after the
+profile credentials resolve and fail authentication when the returned
+Account does not match the target:
+
+```python
+Profile("AWS-Infosec-{account_id}", verify_account_id=True)
+```
+
+This is off by default so the ordinary path does not add an extra STS call.
+Each result exposes the resolved `profile_name` or `role_name` without
+credentials.
+
 `Profile` does not discover accounts automatically, RunAcross does not run
 `aws sso login`, and one execution cannot mix Role and Profile. Configure the
 strategy in your application:
@@ -347,7 +359,8 @@ for result in results:
 `auth` covers role assumption and profile resolution. In 0.1 this phase was
 named `assume_role`. Failed results also expose `result.error_code` when the
 stored exception is a Botocore `ClientError`; RunAcross does not parse
-exception text and does not store credentials.
+exception text and does not store credentials. `result.profile_name` and
+`result.role_name` identify which profile or role was selected.
 
 `RunResults` and `RegionResults` preserve input order and provide:
 
@@ -537,9 +550,9 @@ See [docs/api.md](docs/api.md).
 
 ## Roadmap
 
-The next likely additions are optional: account-ID verification on Profile,
-structured profile names on results, and Organizations OU selection. The
-default path stays two calls and a callback. See [docs/roadmap.md](docs/roadmap.md).
+The next likely additions are optional: a public configuration error type and
+Organizations OU selection. The default path stays two calls and a callback.
+See [docs/roadmap.md](docs/roadmap.md).
 
 ## Contributing
 

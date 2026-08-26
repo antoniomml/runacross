@@ -66,6 +66,10 @@ class FakeBoundAuth:
     def reporting_region(self) -> str | None:
         return self.region
 
+    def identity(self, account: Account) -> tuple[str | None, str | None]:
+        del account
+        return None, None
+
     def session_for(self, account: Account, *, region: str | None = None) -> Session:
         self.session_calls.append((account.id, region))
         if account.id in self.fail_accounts:

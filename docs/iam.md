@@ -176,7 +176,9 @@ permission set when using `Profile`.
 
 `Profile` does not call `sts:AssumeRole`. The Identity Center permission set
 behind each profile needs the callback's service permissions, and
-`account:ListRegions` if Region discovery is used.
+`account:ListRegions` if Region discovery is used. `verify_account_id=True`
+calls `sts:GetCallerIdentity`, which AWS allows without an extra allow
+statement.
 
 `runacross.profiles.list_accounts()` reads the shared AWS config locally and
 needs no AWS permission. When its optional organization guard is enabled, the

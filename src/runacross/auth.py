@@ -32,6 +32,9 @@ class BoundAuth(Protocol):
     def reporting_region(self) -> str | None:
         """A Region used when a failure has no target Region yet."""
 
+    def identity(self, account: Account) -> tuple[str | None, str | None]:
+        """Return ``(profile_name, role_name)`` without credentials."""
+
 
 class Auth(Protocol):
     """How RunAcross obtains a Boto3 Session for each account."""
@@ -116,6 +119,10 @@ class BoundRole:
     def reporting_region(self) -> str | None:
         return self._source_region
 
+    def identity(self, account: Account) -> tuple[str | None, str | None]:
+        del account
+        return None, self._role.name
+
     def session_for(self, account: Account, *, region: str | None = None) -> Session:
         region_name = region or self._source_region
         return copy_session(self._base_session(account), region_name)
@@ -150,8 +157,11 @@ class Profile:
     pattern: str | None = None
     mapping: Mapping[str, str] | None = None
     resolver: Callable[[Account], str] | None = None
+    verify_account_id: bool = False
 
     def __post_init__(self) -> None:
+        if type(self.verify_account_id) is not bool:
+            raise TypeError("verify_account_id must be a bool")
         selected = [
             name
             for name, value in (
@@ -205,10 +215,10 @@ class Profile:
         max_workers: int,
         botocore_config: Config | None,
     ) -> BoundProfile:
-        """Profiles do not create shared AWS clients."""
+        """Profiles do not create shared AWS clients until a Session is needed."""
 
-        del max_workers, botocore_config
-        return BoundProfile(self)
+        del max_workers
+        return BoundProfile(self, botocore_config=botocore_config)
 
     def profile_name(self, account: Account) -> str:
         """Resolve the AWS profile name for one account."""
@@ -248,11 +258,18 @@ class Profile:
 class BoundProfile:
     """Create a Boto3 Session from a named local profile."""
 
-    def __init__(self, profile: Profile) -> None:
+    def __init__(self, profile: Profile, *, botocore_config: Config | None) -> None:
         self._profile = profile
+        self._botocore_config = botocore_config
 
     def reporting_region(self) -> str | None:
         return None
+
+    def identity(self, account: Account) -> tuple[str | None, str | None]:
+        try:
+            return self._profile.profile_name(account), None
+        except (KeyError, TypeError, ValueError):
+            return None, None
 
     def session_for(self, account: Account, *, region: str | None = None) -> Session:
         profile_name = self._profile.profile_name(account)
@@ -266,7 +283,41 @@ class BoundProfile:
                 "config, pass regions to map_account_regions, or set AWS_DEFAULT_REGION"
             )
         _resolve_session_credentials(session, profile_name)
+        if self._profile.verify_account_id:
+            _verify_profile_account(
+                session,
+                account,
+                profile_name=profile_name,
+                botocore_config=self._botocore_config,
+            )
         return session
+
+
+def _verify_profile_account(
+    session: Session,
+    account: Account,
+    *,
+    profile_name: str,
+    botocore_config: Config | None,
+) -> None:
+    """Confirm sts:GetCallerIdentity matches the expected account ID."""
+
+    client = session.client(
+        "sts",
+        config=build_client_config(max_pool_connections=1, user_config=botocore_config),
+    )
+    response = client.get_caller_identity()
+    actual = response.get("Account") if isinstance(response, Mapping) else None
+    if not isinstance(actual, str) or not actual:
+        raise RuntimeError(
+            f"profile {profile_name!r} did not return an Account from "
+            "sts:GetCallerIdentity"
+        )
+    if actual != account.id:
+        raise ValueError(
+            f"profile {profile_name!r} authenticated as account {actual}, "
+            f"expected {account.id}"
+        )
 
 
 def _resolve_session_credentials(session: Session, profile_name: str) -> None:

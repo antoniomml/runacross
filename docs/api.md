@@ -32,13 +32,17 @@ functions are also public:
 
 `list_accounts` helpers accept `limit=` to return the first matching accounts.
 `map_accounts` and `map_account_regions` accept `on_result`. `show_progress()`
-returns a TTY-aware stderr reporter for that callback.
+returns a TTY-aware stderr reporter for that callback. `Profile` accepts
+`verify_account_id=True` to confirm `sts:GetCallerIdentity`.
 
 ## Result conversion
 
 `AccountResult` and `AccountRegionResult` expose `success`, `unwrap()`,
-`phase`, `error_code`, and `to_dict()`. `error_code` is the Botocore
-`ClientError` code at `response["Error"]["Code"]` when that value exists.
+`phase`, `error_code`, `profile_name`, `role_name`, and `to_dict()`.
+`error_code` is the Botocore `ClientError` code at
+`response["Error"]["Code"]` when that value exists. `profile_name` and
+`role_name` identify the selected profile or role and never include
+credentials.
 
 `RunResults` and `RegionResults` also expose `successful`, `failed`,
 `success_count`, `failure_count`, `to_dicts()`, `failures_by_phase()`, and
