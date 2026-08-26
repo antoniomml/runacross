@@ -103,6 +103,41 @@ def test_list_accounts_excludes_requested_accounts(
     assert accounts == [Account(id="222222222222")]
 
 
+def test_list_accounts_limit_keeps_first_matching_profiles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_config(
+        monkeypatch,
+        shared_config(
+            {
+                "AWS-Infosec-111111111111": {
+                    "sso_session": "control-tower",
+                    "sso_account_id": "111111111111",
+                },
+                "AWS-Infosec-222222222222": {
+                    "sso_session": "control-tower",
+                    "sso_account_id": "222222222222",
+                },
+                "AWS-Infosec-333333333333": {
+                    "sso_session": "control-tower",
+                    "sso_account_id": "333333333333",
+                },
+            }
+        ),
+    )
+
+    accounts = list_accounts(
+        pattern="AWS-Infosec-{account_id}",
+        sso_session="control-tower",
+        limit=2,
+    )
+
+    assert accounts == [
+        Account(id="111111111111"),
+        Account(id="222222222222"),
+    ]
+
+
 def test_list_accounts_honors_aws_config_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -32,7 +32,7 @@ jobs:
       - run: python -m twine check dist/*
       - run: python -m venv /tmp/runacross-wheel
       - run: /tmp/runacross-wheel/bin/python -m pip install dist/*.whl
-      - run: /tmp/runacross-wheel/bin/python -c "from runacross import Profile, Role, map_account_regions, map_accounts; assert callable(map_accounts) and callable(map_account_regions)"
+      - run: /tmp/runacross-wheel/bin/python -c "from runacross import Profile, Role, map_account_regions, map_accounts, show_progress; assert callable(map_accounts) and callable(show_progress)"
         working-directory: /tmp
 
   tests:

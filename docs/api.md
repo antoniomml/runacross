@@ -19,6 +19,7 @@ from runacross import (
     __version__,
     map_account_regions,
     map_accounts,
+    show_progress,
 )
 ```
 
@@ -28,6 +29,10 @@ functions are also public:
 - `runacross.profiles.list_accounts`
 - `runacross.organizations.list_accounts`
 - `runacross.regions.list_enabled_regions`
+
+`list_accounts` helpers accept `limit=` to return the first matching accounts.
+`map_accounts` and `map_account_regions` accept `on_result`. `show_progress()`
+returns a TTY-aware stderr reporter for that callback.
 
 ## Result conversion
 
