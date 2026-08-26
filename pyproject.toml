@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "runacross"
-version = "0.2.0"
+version = "0.3.0"
 description = "Concurrent Python execution across AWS accounts and regions."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -78,4 +78,3 @@ files = ["src"]
 [[tool.mypy.overrides]]
 module = ["boto3", "boto3.*", "botocore", "botocore.*"]
 ignore_missing_imports = true
-

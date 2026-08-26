@@ -265,7 +265,17 @@ class BoundProfile:
                 f"profile {profile_name!r} must have a region; set it in the AWS "
                 "config, pass regions to map_account_regions, or set AWS_DEFAULT_REGION"
             )
+        _resolve_session_credentials(session, profile_name)
         return session
+
+
+def _resolve_session_credentials(session: Session, profile_name: str) -> None:
+    """Resolve lazy profile credentials while failures still belong to auth."""
+
+    credentials = session.get_credentials()
+    if credentials is None:
+        raise RuntimeError(f"profile {profile_name!r} did not provide credentials")
+    credentials.get_frozen_credentials()
 
 
 def resolve_auth(

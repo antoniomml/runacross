@@ -7,6 +7,20 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-26
+
+### Added
+
+- `runacross.profiles.list_accounts()` for local Identity Center account
+  discovery scoped to one named SSO session, with an optional
+  `DescribeOrganization` safety guard.
+
+### Fixed
+
+- `Profile` now resolves its lazy Boto3 credentials before starting a callback,
+  so expired Identity Center tokens and denied role credentials are reported in
+  the `auth` phase instead of the `worker` phase.
+
 ## [0.2.0] - 2026-08-21
 
 ### Added
@@ -64,7 +78,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - Constructing subscripted `AccountResult[T](...)` on Python 3.10.
 
-[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/antoniomml/runacross/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/antoniomml/runacross/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/antoniomml/runacross/compare/v0.1.0...v0.1.2
 [0.1.0]: https://github.com/antoniomml/runacross/releases/tag/v0.1.0

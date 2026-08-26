@@ -22,10 +22,12 @@ class _Paginator(Protocol):
         """Return all Organizations response pages."""
 
 
-class _OrganizationsClient(Protocol):
+class _DescribeOrganizationsClient(Protocol):
     def describe_organization(self) -> dict[str, Any]:
         """Describe the caller's AWS Organization."""
 
+
+class _OrganizationsClient(_DescribeOrganizationsClient, Protocol):
     def get_paginator(self, operation_name: str) -> _Paginator:
         """Create a paginator for an Organizations operation."""
 
@@ -109,7 +111,7 @@ def _validate_organization_id(organization_id: str | None) -> None:
         )
 
 
-def _get_organization_id(client: _OrganizationsClient) -> str:
+def _get_organization_id(client: _DescribeOrganizationsClient) -> str:
     response = client.describe_organization()
     try:
         organization_id = response["Organization"]["Id"]

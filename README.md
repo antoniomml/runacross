@@ -140,8 +140,8 @@ Profile(resolver=lambda account: f"sso-{account.id}")
 Exactly one of `pattern`, `mapping`, or `resolver` is required. Pattern
 placeholders are `{account_id}` and, if present on the `Account`, `{name}`.
 
-RunAcross does not read your config to guess profiles, does not run
-`aws sso login`, and does not mix Role and Profile in one call. Configure the
+`Profile` does not discover accounts automatically, RunAcross does not run
+`aws sso login`, and one execution cannot mix Role and Profile. Configure the
 strategy in your application:
 
 ```python
@@ -154,6 +154,50 @@ def auth():
         return Role(os.environ["RUNACROSS_ROLE_NAME"])
     return Profile(os.environ["RUNACROSS_PROFILE_PATTERN"])
 ```
+
+### Discovering accounts from Identity Center profiles
+
+When the shared AWS config is the source of the account list, discover only
+profiles attached to one named SSO session:
+
+```python
+from runacross import Profile, map_accounts
+from runacross.profiles import list_accounts
+
+accounts = list_accounts(
+    pattern="AWS-Infosec-{account_id}",
+    sso_session="control-tower",
+)
+
+results = map_accounts(
+    who_am_i,
+    accounts=accounts,
+    auth=Profile("AWS-Infosec-{account_id}"),
+)
+```
+
+`sso_session` is required so profiles from different Identity Center sessions
+cannot be combined accidentally. RunAcross reads the shared AWS config through
+Botocore, including the `AWS_CONFIG_FILE` override. The profile name must match
+the pattern exactly, and its captured account ID must equal `sso_account_id`.
+
+This local discovery does not call AWS and reports configured targets, not a
+current organization inventory. It cannot determine whether an account is
+active or whether the assignment is still available. Optionally validate the
+expected AWS Organization using one profile from the selected SSO session:
+
+```python
+accounts = list_accounts(
+    pattern="AWS-Infosec-{account_id}",
+    sso_session="control-tower",
+    organization_id="o-exampleorgid",
+    organization_profile="AWSAdministratorAccess-999999999999",
+)
+```
+
+The validation calls only Organizations `DescribeOrganization`, not
+`ListAccounts`. Both organization arguments must be supplied together, and the
+validation profile must reference the selected `sso_session`.
 
 ## Account-by-Region execution
 
@@ -364,7 +408,10 @@ the organization ID guard also needs `organizations:DescribeOrganization`.
 Enabled-Region discovery needs `account:ListRegions`.
 
 For `Profile`, the Identity Center permission set (or other profile identity)
-needs only the service permissions used by the callback.
+needs only the service permissions used by the callback. Local profile
+discovery needs no AWS permissions. Its optional organization guard needs
+`organizations:DescribeOrganization` on `organization_profile`, but does not
+need `organizations:ListAccounts`.
 
 The assumed role, when using `Role`, needs only the service permissions used
 by the callback. See [docs/iam.md](docs/iam.md) for restrictive examples and

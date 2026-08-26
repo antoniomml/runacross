@@ -197,11 +197,47 @@ exception messages are user-controlled and must not contain secrets.
 Temporary credentials copied into a new Boto3 Session do not refresh
 automatically. They expire after the assumed session lifetime.
 
+Profile credentials are resolved before the Session is handed to a callback.
+This makes missing profiles, expired Identity Center tokens, and denied
+`GetRoleCredentials` requests authentication failures rather than worker
+failures. Credentials can still expire or lose access after the callback has
+started; those later failures belong to the worker.
+
 RunAcross-owned clients use Botocore standard retries with three total attempts.
 A provided `botocore_config` is merged with the library defaults and takes
 precedence. The default connection pool is sized to at least the worker count,
 unless the user explicitly overrides it with a smaller value. Configuration
 does not propagate to clients created later by the callback.
+
+## Local profile discovery
+
+Identity Center profiles can be an explicit account source:
+
+```python
+from runacross.profiles import list_accounts
+
+accounts = list_accounts(
+    pattern="AWS-Infosec-{account_id}",
+    sso_session="control-tower",
+)
+```
+
+The implementation reads Botocore's full shared config, which respects
+`AWS_CONFIG_FILE`, and selects exact profile-name matches from one named
+`sso_session`. It uses `sso_account_id` as the authoritative account ID and
+rejects a mismatch with the ID captured from the profile name. Requiring the
+SSO session prevents identical naming conventions in separate Identity Center
+sessions from producing a mixed target set.
+
+Discovery is local and does not claim that configured accounts are active or
+currently accessible. Optional `organization_id` and `organization_profile`
+arguments resolve the validation profile's credentials and call only
+Organizations `DescribeOrganization`. The profile must use the selected SSO
+session, preventing an unrelated profile from satisfying the safety guard.
+
+Discovery and execution remain separate: `list_accounts` supplies `Account`
+objects, while `Profile(pattern)` independently supplies Sessions during the
+execution.
 
 ## Organizations
 
