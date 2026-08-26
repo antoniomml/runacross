@@ -93,7 +93,8 @@ contain exactly 12 ASCII digits. Inputs are not silently deduplicated.
 `Account.__repr__` redacts `email` when that field is present.
 
 `AccountResult[T]` contains the account, value or exception, elapsed duration,
-and failure phase. `ExecutionPhase` distinguishes `auth` from `worker`.
+failure phase, and the selected `profile_name` or `role_name`. `ExecutionPhase`
+distinguishes `auth` from `worker`.
 `success` is based on the absence of an error, so a callback may successfully
 return `None`. Version 0.1 used `assume_role` for the authentication phase.
 Failed results expose `error_code` when the stored exception is a Botocore
@@ -211,7 +212,8 @@ automatically. They expire after the assumed session lifetime.
 Profile credentials are resolved before the Session is handed to a callback.
 This makes missing profiles, expired Identity Center tokens, and denied
 `GetRoleCredentials` requests authentication failures rather than worker
-failures. Credentials can still expire or lose access after the callback has
+failures. Optional `verify_account_id=True` then calls `sts:GetCallerIdentity`
+and fails authentication when the Account does not match the target. Credentials can still expire or lose access after the callback has
 started; those later failures belong to the worker.
 
 RunAcross-owned clients use Botocore standard retries with three total attempts.

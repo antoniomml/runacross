@@ -233,6 +233,8 @@ def test_account_result_error_code_reads_botocore_response() -> None:
     assert failed.to_dict() == {
         "account_id": "111111111111",
         "account_name": "Security",
+        "profile_name": None,
+        "role_name": None,
         "success": False,
         "value": None,
         "error_type": "ClientError",

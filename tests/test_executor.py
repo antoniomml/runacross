@@ -80,6 +80,8 @@ def test_map_accounts_collects_mixed_results_without_cancelling() -> None:
         "333333333333",
     ]
     assert results[0].value == "ok-111111111111"
+    assert results[0].role_name == "SecurityAuditRole"
+    assert results[0].profile_name is None
     assert isinstance(results[1].error, RuntimeError)
     assert results[1].phase is ExecutionPhase.WORKER
     assert results[2].value == "ok-333333333333"

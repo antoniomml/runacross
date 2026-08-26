@@ -297,6 +297,7 @@ def _execute_account(
 ) -> AccountResult[T]:
     started_at = perf_counter()
     logger.debug("Authenticating account %s", account.id)
+    profile_name, role_name = bound.identity(account)
 
     try:
         session = bound.session_for(account)
@@ -307,6 +308,8 @@ def _execute_account(
             started_at,
             ExecutionPhase.AUTH,
             "Authentication failed for account %s after %.3fs",
+            profile_name=profile_name,
+            role_name=role_name,
         )
 
     logger.debug("Starting worker for account %s", account.id)
@@ -319,6 +322,8 @@ def _execute_account(
             started_at,
             ExecutionPhase.WORKER,
             "Worker failed for account %s after %.3fs",
+            profile_name=profile_name,
+            role_name=role_name,
         )
 
     duration = perf_counter() - started_at
@@ -329,6 +334,8 @@ def _execute_account(
         error=None,
         duration_seconds=duration,
         phase=None,
+        profile_name=profile_name,
+        role_name=role_name,
     )
 
 
@@ -344,6 +351,7 @@ def _execute_account_region(
         target.account.id,
         target.region,
     )
+    profile_name, role_name = bound.identity(target.account)
 
     try:
         session = bound.session_for(target.account, region=target.region)
@@ -354,6 +362,8 @@ def _execute_account_region(
             started_at,
             ExecutionPhase.AUTH,
             "Authentication failed for account %s in %s after %.3fs",
+            profile_name=profile_name,
+            role_name=role_name,
         )
 
     logger.debug(
@@ -370,6 +380,8 @@ def _execute_account_region(
             started_at,
             ExecutionPhase.WORKER,
             "Worker failed for account %s in %s after %.3fs",
+            profile_name=profile_name,
+            role_name=role_name,
         )
 
     duration = perf_counter() - started_at
@@ -385,6 +397,8 @@ def _execute_account_region(
         error=None,
         duration_seconds=duration,
         phase=None,
+        profile_name=profile_name,
+        role_name=role_name,
     )
 
 
@@ -398,6 +412,7 @@ def _discover_account(
 ) -> _Discovery:
     started_at = perf_counter()
     session: Session | None = None
+    profile_name, role_name = bound.identity(account)
     try:
         session = bound.session_for(account)
         enabled = list_enabled_regions(
@@ -419,6 +434,8 @@ def _discover_account(
                 started_at,
                 ExecutionPhase.AUTH,
                 "Region discovery failed for account %s in %s after %.3fs",
+                profile_name=profile_name,
+                role_name=role_name,
             ),
         )
 
@@ -463,6 +480,9 @@ def _account_failure(
     started_at: float,
     phase: ExecutionPhase,
     message: str,
+    *,
+    profile_name: str | None,
+    role_name: str | None,
 ) -> AccountResult[T]:
     duration = perf_counter() - started_at
     logger.debug(message, account.id, duration, exc_info=True)
@@ -473,6 +493,8 @@ def _account_failure(
         error=error,
         duration_seconds=duration,
         phase=phase,
+        profile_name=profile_name,
+        role_name=role_name,
     )
 
 
@@ -482,6 +504,9 @@ def _account_region_failure(
     started_at: float,
     phase: ExecutionPhase,
     message: str,
+    *,
+    profile_name: str | None,
+    role_name: str | None,
 ) -> AccountRegionResult[T]:
     duration = perf_counter() - started_at
     logger.debug(
@@ -498,6 +523,8 @@ def _account_region_failure(
         error=error,
         duration_seconds=duration,
         phase=phase,
+        profile_name=profile_name,
+        role_name=role_name,
     )
 
 

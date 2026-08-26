@@ -58,19 +58,21 @@ Extra capability should appear beside that shape, not inside `map_accounts`.
 - `limit=` on both `list_accounts` helpers so examples and dry runs can cap
   the discovered set without slicing.
 
+## 0.5
+
+- Optional `Profile(..., verify_account_id=True)` so
+  `sts:GetCallerIdentity` must match the expected account ID.
+- `profile_name` and `role_name` on each result, without credentials.
+
 ## Next
 
 Optional APIs beside the default path. Suggested order:
 
-1. Optional `Profile(..., verify_account_id=True)` so
-   `sts:GetCallerIdentity` matches the expected account ID.
-2. Safe identity on each result (`profile_name`, and role name when using
-   `Role`) without credentials.
-3. A public `RunAcrossError` / `ConfigError` for discovery and configuration
+1. A public `RunAcrossError` / `ConfigError` for discovery and configuration
    failures. Per-target callback errors stay on the result object.
-4. Reusable account selection beside the executor, especially Organizations
+2. Reusable account selection beside the executor, especially Organizations
    OU filters. Do not add OU parameters to `map_accounts`.
-5. Timeouts and deadlines only with honest semantics: Python threads cannot
+3. Timeouts and deadlines only with honest semantics: Python threads cannot
    cancel an in-flight AWS call. Prefer marking unfinished work as failed
    over pretending the worker stopped.
 

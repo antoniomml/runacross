@@ -164,11 +164,15 @@ def _outcome_dict(
     error: Exception | None,
     duration_seconds: float,
     phase: ExecutionPhase | None,
+    profile_name: str | None = None,
+    role_name: str | None = None,
     region: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "account_id": account.id,
         "account_name": account.name,
+        "profile_name": profile_name,
+        "role_name": role_name,
         "success": error is None,
         "value": value if error is None else None,
         "error_type": type(error).__name__ if error is not None else None,
@@ -234,6 +238,8 @@ class AccountResult(Generic[T_co]):
     error: Exception | None
     duration_seconds: float
     phase: ExecutionPhase | None
+    profile_name: str | None = None
+    role_name: str | None = None
 
     def __post_init__(self) -> None:
         _validate_outcome(
@@ -271,6 +277,8 @@ class AccountResult(Generic[T_co]):
             error=self.error,
             duration_seconds=self.duration_seconds,
             phase=self.phase,
+            profile_name=self.profile_name,
+            role_name=self.role_name,
         )
 
 
@@ -283,6 +291,8 @@ class AccountRegionResult(Generic[T_co]):
     error: Exception | None
     duration_seconds: float
     phase: ExecutionPhase | None
+    profile_name: str | None = None
+    role_name: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.target, AccountRegion):
@@ -334,6 +344,8 @@ class AccountRegionResult(Generic[T_co]):
             error=self.error,
             duration_seconds=self.duration_seconds,
             phase=self.phase,
+            profile_name=self.profile_name,
+            role_name=self.role_name,
             region=self.region,
         )
 

@@ -19,7 +19,7 @@ def main() -> None:
     results = map_accounts(
         who_am_i,
         accounts=accounts,
-        auth=Profile("AWS-Infosec-{account_id}"),
+        auth=Profile("AWS-Infosec-{account_id}", verify_account_id=True),
         on_result=show_progress(),
     )
     for result in results:
