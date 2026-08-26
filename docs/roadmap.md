@@ -23,7 +23,14 @@ Features should be added only when they preserve the small execution primitive.
 - Small account and Region exclude filters.
 - A structured `AccountRegion` result identity for each account and Region pair.
 
-## 0.3 and later
+## 0.3
+
+- Explicit local account discovery from Identity Center profiles, scoped to
+  one named SSO session with an optional organization guard.
+- Eager validation of profile credentials so initial credential-provider
+  failures are classified as authentication failures.
+
+## Later
 
 Candidates requiring evidence from real usage:
 

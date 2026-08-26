@@ -1,6 +1,7 @@
 from boto3.session import Session
 
 from runacross import Account, Profile, map_accounts
+from runacross.profiles import list_accounts
 
 
 def who_am_i(session: Session, _account: Account) -> str:
@@ -9,12 +10,13 @@ def who_am_i(session: Session, _account: Account) -> str:
 
 
 def main() -> None:
+    accounts = list_accounts(
+        pattern="{account_id}-script-SecurityAudit",
+        sso_session="control-tower",
+    )
     results = map_accounts(
         who_am_i,
-        accounts=[
-            "111111111111",
-            "222222222222",
-        ],
+        accounts=accounts,
         auth=Profile("{account_id}-script-SecurityAudit"),
     )
 

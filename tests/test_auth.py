@@ -18,6 +18,19 @@ class RecordingSession:
     ) -> None:
         self.profile_name = profile_name
         self.region_name = region_name or "eu-west-1"
+        self.credentials = RecordingCredentials()
+
+    def get_credentials(self) -> RecordingCredentials | None:
+        return self.credentials
+
+
+class RecordingCredentials:
+    def __init__(self) -> None:
+        self.freeze_calls = 0
+
+    def get_frozen_credentials(self) -> object:
+        self.freeze_calls += 1
+        return object()
 
 
 def test_profile_requires_exactly_one_strategy() -> None:
@@ -140,6 +153,63 @@ def test_map_accounts_uses_profile_pattern(monkeypatch: pytest.MonkeyPatch) -> N
         "111111111111-script-SecurityAudit",
         "222222222222-script-SecurityAudit",
     ]
+    assert [session.credentials.freeze_calls for session in created] == [1, 1]
+
+
+def test_profile_without_credentials_is_an_auth_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_session(
+        profile_name: str | None = None,
+        region_name: str | None = None,
+        **_kwargs: Any,
+    ) -> RecordingSession:
+        session = RecordingSession(profile_name, region_name)
+        session.credentials = None  # type: ignore[assignment]
+        return session
+
+    monkeypatch.setattr("runacross.auth.boto3.Session", fake_session)
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        auth=Profile("{account_id}-audit"),
+    )
+
+    assert results[0].success is False
+    assert results[0].phase is ExecutionPhase.AUTH
+    assert results[0].error is not None
+    assert "did not provide credentials" in str(results[0].error)
+
+
+def test_profile_credential_resolution_error_is_an_auth_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ExpiredCredentials(RecordingCredentials):
+        def get_frozen_credentials(self) -> object:
+            raise RuntimeError("Token has expired")
+
+    def fake_session(
+        profile_name: str | None = None,
+        region_name: str | None = None,
+        **_kwargs: Any,
+    ) -> RecordingSession:
+        session = RecordingSession(profile_name, region_name)
+        session.credentials = ExpiredCredentials()
+        return session
+
+    monkeypatch.setattr("runacross.auth.boto3.Session", fake_session)
+
+    results = map_accounts(
+        lambda _session, account: account.id,
+        accounts=["111111111111"],
+        auth=Profile("{account_id}-audit"),
+    )
+
+    assert results[0].success is False
+    assert results[0].phase is ExecutionPhase.AUTH
+    assert results[0].error is not None
+    assert "Token has expired" in str(results[0].error)
 
 
 def test_profile_without_region_is_an_auth_failure(

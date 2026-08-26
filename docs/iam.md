@@ -178,6 +178,13 @@ permission set when using `Profile`.
 behind each profile needs the callback's service permissions, and
 `account:ListRegions` if Region discovery is used.
 
+`runacross.profiles.list_accounts()` reads the shared AWS config locally and
+needs no AWS permission. When its optional organization guard is enabled, the
+permission set behind `organization_profile` needs
+`organizations:DescribeOrganization`. It does not need
+`organizations:ListAccounts` because local profiles, rather than Organizations,
+provide the account list.
+
 When `Role` is used with an Identity Center **source** profile, the target
 roles must trust that Identity Center role, for example:
 
@@ -201,4 +208,3 @@ Do not use `AWSReservedSSO_*` names as `Role.name`. Those roles typically
 trust only the Identity Center service, not another principal's `AssumeRole`.
 The source Identity Center role must still be allowed to call `sts:AssumeRole`
 on the target role ARNs.
-
