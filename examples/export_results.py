@@ -1,4 +1,6 @@
-"""Assume a role in explicit accounts and print each caller identity."""
+"""Serialize execution results without choosing a CLI or report format."""
+
+import json
 
 from boto3.session import Session
 
@@ -15,11 +17,8 @@ def main() -> None:
         accounts=["111111111111", "222222222222"],
         role_name="SecurityAuditRole",
     )
-    for result in results:
-        if result.success:
-            print(f"{result.account.id}: {result.value}")
-        else:
-            print(f"{result.account.id}: {result.phase}: {result.error}")
+    print(json.dumps(results.summary()))
+    print(json.dumps(results.to_dicts(), indent=2))
 
 
 if __name__ == "__main__":

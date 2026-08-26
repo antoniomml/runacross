@@ -39,6 +39,8 @@ Before submitting a change:
 
 - add tests for behavior changes;
 - update user-facing documentation when the API changes;
+- treat only `runacross.__all__` and the documented `list_accounts` /
+  `list_enabled_regions` submodule functions as public API;
 - avoid new runtime dependencies unless the standard library is insufficient;
 - do not include credentials, `.env` files, generated artifacts, or IDE state.
 
