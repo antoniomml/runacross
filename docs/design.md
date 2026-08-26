@@ -78,6 +78,7 @@ def map_accounts(
     botocore_config: Config | None = None,
     max_workers: int = 10,
     exclude_accounts: Iterable[str | Account] = (),
+    on_result: Callable[..., None] | None = None,
 ) -> RunResults[T]: ...
 ```
 
@@ -117,6 +118,7 @@ def map_account_regions(
     exclude_accounts: Iterable[str | Account] = (),
     exclude_regions: Iterable[str] = (),
     discover_regions: bool = False,
+    on_result: Callable[..., None] | None = None,
     ...
 ) -> RegionResults[T]: ...
 ```
@@ -146,8 +148,9 @@ For non-empty input:
    Region.
 7. The task calls `function(session, account)` or
    `function(session, account, region)` in the same worker thread.
-8. The calling thread consumes futures with `as_completed`.
-9. Results are placed into their original input positions.
+8. The calling thread consumes futures with `as_completed`. Optional
+   `on_result` runs on that thread after each completion, with
+   `completed` and `total`. Results are still stored in input order.
 
 Empty input after filters returns an empty result collection without resolving
 credentials or creating AWS clients.
@@ -246,8 +249,9 @@ session, preventing an unrelated profile from satisfying the safety guard.
 Discovery and execution remain separate: `list_accounts` supplies `Account`
 objects, while `Profile(pattern)` independently supplies Sessions during the
 execution. Local discovery reports configured targets and can include closed
-accounts or stale assignments. `organizations.list_accounts()` queries the
-live ACTIVE inventory and needs additional IAM permissions.
+accounts or stale assignments. `limit` keeps the first matching profiles.
+`organizations.list_accounts()` queries the live ACTIVE inventory and needs
+additional IAM permissions.
 
 ## Organizations
 
@@ -262,7 +266,8 @@ results = map_accounts(worker, accounts=accounts, role_name="SecurityAuditRole")
 
 The function call makes network activity explicit. It uses the Organizations
 paginator and returns only accounts whose current `State` is `ACTIVE`.
-`exclude_accounts` provides a small safety filter.
+`exclude_accounts` provides a small safety filter. `limit` keeps the first
+matching accounts after that filter, in discovery order.
 
 The optional organization ID is not a selector. AWS chooses the organization
 from the credentials. RunAcross calls `DescribeOrganization` and rejects a

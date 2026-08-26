@@ -13,7 +13,12 @@ from runacross import (
     RunResults,
     __version__,
 )
-from runacross.models import coerce_accounts, coerce_regions, exclude_accounts
+from runacross.models import (
+    coerce_accounts,
+    coerce_limit,
+    coerce_regions,
+    exclude_accounts,
+)
 
 
 @pytest.mark.parametrize(
@@ -335,6 +340,19 @@ def test_exclude_accounts_preserves_order() -> None:
         Account(id="111111111111"),
         Account(id="333333333333"),
     )
+
+
+def test_coerce_limit_accepts_none_and_non_negative_integers() -> None:
+    assert coerce_limit(None) is None
+    assert coerce_limit(0) == 0
+    assert coerce_limit(3) == 3
+
+
+def test_coerce_limit_rejects_invalid_values() -> None:
+    with pytest.raises(TypeError, match="integer or None"):
+        coerce_limit(True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="cannot be negative"):
+        coerce_limit(-1)
 
 
 def test_account_region_result_exposes_target_identity() -> None:

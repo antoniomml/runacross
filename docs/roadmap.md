@@ -49,23 +49,33 @@ Extra capability should appear beside that shape, not inside `map_accounts`.
 - Result conversion: `to_dicts()`, `summary()`, `failures_by_phase()`, and
   `error_code`, without imposing a CLI or output format.
 
+## 0.4
+
+- `on_result` reports each target as it finishes, while the returned
+  collection stays in input order.
+- `show_progress()` rewrites one stderr status line on a TTY and stays
+  silent otherwise. No tqdm or rich dependency.
+- `limit=` on both `list_accounts` helpers so examples and dry runs can cap
+  the discovered set without slicing.
+
 ## Next
 
-Optional APIs beside the executor, only when they stay out of the default
-path:
+Optional APIs beside the default path. Suggested order:
 
-- Richer account selection when Organizations is available: OU, account tags,
-  name, regular expression, status, and include/exclude IDs.
-- Progress without a UI: a callback or iterator that yields results as they
-  complete, while the final collection remains ordered.
-- Execution limits for large scripts and Lambdas: a global deadline, a
-  per-target timeout, cooperative cancellation, and an optional rate limit.
-- Optional `Profile(..., verify_account_id=True)` so
-  `sts:GetCallerIdentity` can confirm the profile's account.
-- An opt-in retry helper for idempotent callbacks. The executor will not
-  retry arbitrary callbacks automatically.
-- Lifecycle hooks (`on_start`, `on_success`, `on_error`) if progress callbacks
-  are not enough.
+1. Optional `Profile(..., verify_account_id=True)` so
+   `sts:GetCallerIdentity` matches the expected account ID.
+2. Safe identity on each result (`profile_name`, and role name when using
+   `Role`) without credentials.
+3. A public `RunAcrossError` / `ConfigError` for discovery and configuration
+   failures. Per-target callback errors stay on the result object.
+4. Reusable account selection beside the executor, especially Organizations
+   OU filters. Do not add OU parameters to `map_accounts`.
+5. Timeouts and deadlines only with honest semantics: Python threads cannot
+   cancel an in-flight AWS call. Prefer marking unfinished work as failed
+   over pretending the worker stopped.
+
+Still deferred: callback retries, lifecycle hook triplets, `map_profiles()`,
+and any built-in CLI.
 
 ## Later
 

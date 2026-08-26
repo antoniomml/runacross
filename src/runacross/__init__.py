@@ -14,6 +14,7 @@ from .models import (
     RegionResults,
     RunResults,
 )
+from .progress import show_progress
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -35,4 +36,5 @@ __all__ = [
     "__version__",
     "map_account_regions",
     "map_accounts",
+    "show_progress",
 ]

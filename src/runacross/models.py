@@ -73,6 +73,18 @@ def exclude_accounts(
     return tuple(account for account in accounts if account.id not in excluded_ids)
 
 
+def coerce_limit(limit: int | None) -> int | None:
+    """Validate an optional account-list limit."""
+
+    if limit is None:
+        return None
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise TypeError("limit must be an integer or None")
+    if limit < 0:
+        raise ValueError("limit cannot be negative")
+    return limit
+
+
 def coerce_regions(regions: Iterable[str]) -> tuple[str, ...]:
     """Validate Region names."""
 

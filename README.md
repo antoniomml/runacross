@@ -188,6 +188,7 @@ from runacross.profiles import list_accounts
 accounts = list_accounts(
     pattern="AWS-Infosec-{account_id}",
     sso_session="control-tower",
+    limit=3,
 )
 
 results = map_accounts(
@@ -315,6 +316,8 @@ regions = list_enabled_regions()
 
 Both executors accept `exclude_accounts`. `map_account_regions` also accepts
 `exclude_regions`. Filters preserve input order and do not silently deduplicate.
+Both discovery helpers accept `limit=` to keep the first matching accounts
+instead of slicing the list by hand.
 
 ```python
 results = map_account_regions(
@@ -415,6 +418,44 @@ This configuration applies only to clients RunAcross creates, such as STS or
 the Account Management client used for Region discovery. Pass a `Config` to
 clients created inside your callback to configure their retries.
 
+## Progress
+
+`map_accounts` and `map_account_regions` still wait for every target and
+return results in input order. Pass `on_result` to observe each completion
+as it happens:
+
+```python
+from runacross import show_progress
+
+results = map_accounts(
+    who_am_i,
+    accounts=accounts,
+    auth=Profile("AWS-Infosec-{account_id}"),
+    on_result=show_progress(),
+)
+```
+
+`show_progress()` rewrites one status line on stderr when that stream is a
+TTY:
+
+```text
+runacross  47/186  ok 44  auth 2  worker 1  111122223333
+```
+
+In CI, pipes, and Lambda it stays silent. It is not a tqdm or rich
+integration; those tools can consume the same callback:
+
+```python
+def on_result(result, *, completed, total):
+    log.info("%s %s/%s", result.account.id, completed, total)
+
+
+results = map_accounts(..., on_result=on_result)
+```
+
+An exception from `on_result` stops the run. With `discover_regions=True`,
+discovery authentication failures are reported first, then worker completions.
+
 ## Source credentials
 
 By default, `Role` uses `boto3.Session()` and the standard Boto3 credential
@@ -496,9 +537,9 @@ See [docs/api.md](docs/api.md).
 
 ## Roadmap
 
-The next likely additions are optional: richer account selection, progress
-callbacks, and execution limits. The default path stays two calls and a
-callback. See [docs/roadmap.md](docs/roadmap.md).
+The next likely additions are optional: account-ID verification on Profile,
+structured profile names on results, and Organizations OU selection. The
+default path stays two calls and a callback. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Contributing
 

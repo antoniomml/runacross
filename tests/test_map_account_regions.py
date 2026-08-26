@@ -346,6 +346,53 @@ def test_map_account_regions_empty_accounts_do_not_bind_auth() -> None:
     assert bound.session_calls == []
 
 
+def test_on_result_reports_region_targets_as_they_complete() -> None:
+    seen: list[tuple[str, str, int, int]] = []
+
+    def on_result(result: Any, *, completed: int, total: int) -> None:
+        seen.append((result.account.id, result.region, completed, total))
+
+    results = map_account_regions(
+        lambda _session, account, region: f"{account.id}:{region}",
+        accounts=["111111111111"],
+        regions=["eu-west-1", "us-east-1"],
+        auth=FakeAuth(FakeBoundAuth()),
+        on_result=on_result,
+    )
+
+    assert results.success_count == 2
+    assert {item[:2] for item in seen} == {
+        ("111111111111", "eu-west-1"),
+        ("111111111111", "us-east-1"),
+    }
+    assert [item[2:] for item in seen] == [(1, 2), (2, 2)]
+
+
+def test_on_result_reports_discovery_failures_before_workers() -> None:
+    seen: list[tuple[str, bool, int, int]] = []
+
+    def on_result(result: Any, *, completed: int, total: int) -> None:
+        seen.append((result.account.id, result.success, completed, total))
+
+    results = map_account_regions(
+        lambda _session, account, region: f"{account.id}:{region}",
+        accounts=["111111111111", "222222222222"],
+        auth=FakeAuth(
+            FakeBoundAuth(
+                enabled_regions={"111111111111": ["eu-west-1"]},
+                fail_accounts={"222222222222"},
+            )
+        ),
+        discover_regions=True,
+        on_result=on_result,
+    )
+
+    assert results[0].success is True
+    assert results[1].success is False
+    assert seen[0] == ("222222222222", False, 1, 2)
+    assert seen[1] == ("111111111111", True, 2, 2)
+
+
 def test_map_account_regions_rejects_non_callable_function() -> None:
     with pytest.raises(TypeError, match="function must be callable"):
         map_account_regions(

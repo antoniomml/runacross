@@ -53,11 +53,13 @@ def map_accounts(
     botocore_config: Config | None = None,
     max_workers: int = 10,
     exclude_accounts: Iterable[AccountInput] = (),
+    on_result: Callable[..., None] | None = None,
 ) -> RunResults[T]:
     """Execute a callback concurrently in multiple AWS accounts."""
 
     _validate_function(function)
     _validate_max_workers(max_workers)
+    _validate_on_result(on_result)
     resolved_auth = resolve_auth(
         auth=auth,
         role_name=role_name,
@@ -79,6 +81,7 @@ def map_accounts(
             target_accounts,
             lambda account: _execute_account(function, account, bound=bound),
             max_workers=max_workers,
+            on_result=on_result,
         )
     )
 
@@ -99,11 +102,13 @@ def map_account_regions(
     exclude_accounts: Iterable[AccountInput] = (),
     exclude_regions: Iterable[str] = (),
     discover_regions: bool = False,
+    on_result: Callable[..., None] | None = None,
 ) -> RegionResults[T]:
     """Execute a callback concurrently for each account and Region pair."""
 
     _validate_function(function)
     _validate_max_workers(max_workers)
+    _validate_on_result(on_result)
     if not discover_regions and regions is None:
         raise TypeError(
             "map_account_regions requires regions=... or discover_regions=True"
@@ -156,13 +161,26 @@ def map_account_regions(
         )
         discoveries = None
 
+    if discoveries is None:
+        return RegionResults(
+            _run_pool(
+                targets,
+                lambda target: _execute_account_region(function, target, bound=bound),
+                max_workers=max_workers,
+                on_result=on_result,
+            )
+        )
+
+    total = _region_progress_total(discoveries, targets)
+    completed = _notify_discovery_failures(discoveries, on_result, total=total)
     executed = _run_pool(
         targets,
         lambda target: _execute_account_region(function, target, bound=bound),
         max_workers=max_workers,
+        on_result=on_result,
+        progress_completed=completed,
+        progress_total=total,
     )
-    if discoveries is None:
-        return RegionResults(executed)
 
     executed_index = 0
     ordered: list[AccountRegionResult[T]] = []
@@ -188,16 +206,69 @@ def _validate_max_workers(max_workers: int) -> None:
         raise ValueError("max_workers must be at least 1")
 
 
+def _validate_on_result(on_result: object) -> None:
+    if on_result is not None and not callable(on_result):
+        raise TypeError("on_result must be callable or None")
+
+
+def _notify_result(
+    on_result: Callable[..., None] | None,
+    result: ResultT,
+    *,
+    completed: int,
+    total: int,
+) -> None:
+    if on_result is None:
+        return
+    on_result(result, completed=completed, total=total)
+
+
+def _discovery_failure_count(discoveries: Sequence[_Discovery]) -> int:
+    return sum(discovered.failure is not None for discovered in discoveries)
+
+
+def _region_progress_total(
+    discoveries: Sequence[_Discovery],
+    targets: Sequence[AccountRegion],
+) -> int:
+    return _discovery_failure_count(discoveries) + len(targets)
+
+
+def _notify_discovery_failures(
+    discoveries: Sequence[_Discovery],
+    on_result: Callable[..., None] | None,
+    *,
+    total: int,
+) -> int:
+    completed = 0
+    for discovered in discoveries:
+        if discovered.failure is None:
+            continue
+        completed += 1
+        _notify_result(
+            on_result,
+            discovered.failure,
+            completed=completed,
+            total=total,
+        )
+    return completed
+
+
 def _run_pool(
     items: Sequence[ItemT],
     worker: Callable[[ItemT], ResultT],
     *,
     max_workers: int,
+    on_result: Callable[..., None] | None = None,
+    progress_completed: int = 0,
+    progress_total: int | None = None,
 ) -> list[ResultT]:
     if not items:
         return []
 
     ordered: list[ResultT | None] = [None] * len(items)
+    completed = progress_completed
+    total = len(items) if progress_total is None else progress_total
     with ThreadPoolExecutor(
         max_workers=max_workers,
         thread_name_prefix="runacross",
@@ -206,7 +277,15 @@ def _run_pool(
             executor.submit(worker, item): index for index, item in enumerate(items)
         }
         for future in as_completed(future_indexes):
-            ordered[future_indexes[future]] = future.result()
+            result = future.result()
+            ordered[future_indexes[future]] = result
+            completed += 1
+            _notify_result(
+                on_result,
+                result,
+                completed=completed,
+                total=total,
+            )
     return cast(list[ResultT], ordered)
 
 

@@ -7,6 +7,16 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-26
+
+### Added
+
+- `on_result` on `map_accounts` and `map_account_regions` to observe each
+  target as it finishes. The returned collection stays in input order.
+- `show_progress()` for a single TTY status line on stderr. Non-TTY streams
+  stay silent. This is not a tqdm or rich dependency.
+- `limit=` on `profiles.list_accounts()` and `organizations.list_accounts()`.
+
 ## [0.3.1] - 2026-08-26
 
 ### Added
@@ -91,7 +101,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - Constructing subscripted `AccountResult[T](...)` on Python 3.10.
 
-[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/antoniomml/runacross/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/antoniomml/runacross/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/antoniomml/runacross/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/antoniomml/runacross/compare/v0.1.2...v0.2.0

@@ -177,6 +177,28 @@ def test_list_accounts_excludes_requested_accounts() -> None:
     assert accounts == [Account(id="222222222222")]
 
 
+def test_list_accounts_limit_stops_after_active_matches() -> None:
+    session, _, _ = make_session(
+        [
+            {
+                "Accounts": [
+                    active_account("111111111111"),
+                    {"Id": "222222222222", "State": "SUSPENDED"},
+                    active_account("333333333333"),
+                    active_account("444444444444"),
+                ]
+            }
+        ]
+    )
+
+    accounts = list_accounts(session=session, limit=2)
+
+    assert accounts == [
+        Account(id="111111111111"),
+        Account(id="333333333333"),
+    ]
+
+
 def test_list_accounts_rejects_response_without_state() -> None:
     session, _, _ = make_session(
         [{"Accounts": [{"Id": "111111111111", "Status": "ACTIVE"}]}]

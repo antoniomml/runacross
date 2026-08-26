@@ -12,7 +12,7 @@ from botocore.config import Config
 from botocore.session import Session as BotocoreSession
 
 from .auth import _resolve_session_credentials
-from .models import Account, AccountInput, coerce_accounts
+from .models import Account, AccountInput, coerce_accounts, coerce_limit
 from .organizations import _get_organization_id, _validate_organization_id
 from .sts import build_client_config
 
@@ -32,6 +32,7 @@ def list_accounts(
     organization_profile: str | None = None,
     botocore_config: Config | None = None,
     exclude_accounts: Iterable[AccountInput] = (),
+    limit: int | None = None,
 ) -> list[Account]:
     """Discover accounts from local Identity Center profiles in one SSO session."""
 
@@ -39,6 +40,7 @@ def list_accounts(
     _validate_sso_session(sso_session)
     _validate_organization_options(organization_id, organization_profile)
     excluded_ids = {account.id for account in coerce_accounts(exclude_accounts)}
+    max_accounts = coerce_limit(limit)
 
     full_config = cast(dict[str, Any], BotocoreSession().full_config)
     profiles = _config_section(full_config, "profiles")
@@ -81,6 +83,8 @@ def list_accounts(
             logger.debug("Excluded profile account %s", account.id)
             continue
         accounts.append(account)
+        if max_accounts is not None and len(accounts) >= max_accounts:
+            break
 
     if organization_profile is not None:
         _validate_organization_profile(

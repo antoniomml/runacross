@@ -2,7 +2,7 @@
 
 from boto3.session import Session
 
-from runacross import Account, Profile, map_accounts
+from runacross import Account, Profile, map_accounts, show_progress
 from runacross.profiles import list_accounts
 
 
@@ -14,11 +14,13 @@ def main() -> None:
     accounts = list_accounts(
         pattern="AWS-Infosec-{account_id}",
         sso_session="control-tower",
+        limit=3,
     )
     results = map_accounts(
         who_am_i,
         accounts=accounts,
         auth=Profile("AWS-Infosec-{account_id}"),
+        on_result=show_progress(),
     )
     for result in results:
         if result.success:

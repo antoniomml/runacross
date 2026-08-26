@@ -11,7 +11,7 @@ def who_am_i(session: Session, _account: Account) -> str:
 
 
 def main() -> None:
-    accounts = list_accounts(organization_id="o-exampleorgid")
+    accounts = list_accounts(organization_id="o-exampleorgid", limit=3)
     results = map_accounts(
         who_am_i,
         accounts=accounts,

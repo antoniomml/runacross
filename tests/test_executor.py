@@ -389,3 +389,66 @@ def test_map_accounts_exclude_accounts_skips_filtered_ids() -> None:
         for request in fake_source.sts_client.requests
     ]
     assert assumed_accounts == ["111111111111", "333333333333"]
+
+
+def test_on_result_follows_completion_order_and_keeps_input_order() -> None:
+    source, _ = source_session()
+    second_completed = threading.Event()
+    seen: list[tuple[str, int, int]] = []
+
+    def worker(_session: Session, account: Account) -> str:
+        if account.id == "111111111111":
+            if not second_completed.wait(timeout=5):
+                raise RuntimeError("second account did not complete")
+        else:
+            second_completed.set()
+        return account.id
+
+    def on_result(result: Any, *, completed: int, total: int) -> None:
+        seen.append((result.account.id, completed, total))
+
+    results = map_accounts(
+        worker,
+        accounts=["111111111111", "222222222222"],
+        role_name="SecurityAuditRole",
+        source_session=source,
+        max_workers=2,
+        on_result=on_result,
+    )
+
+    assert [result.account.id for result in results] == [
+        "111111111111",
+        "222222222222",
+    ]
+    assert seen[0] == ("222222222222", 1, 2)
+    assert seen[1] == ("111111111111", 2, 2)
+
+
+def test_on_result_exception_stops_the_run() -> None:
+    source, _ = source_session()
+
+    def on_result(_result: Any, *, completed: int, total: int) -> None:
+        del completed, total
+        raise RuntimeError("observer failed")
+
+    with pytest.raises(RuntimeError, match="observer failed"):
+        map_accounts(
+            lambda _session, account: account.id,
+            accounts=["111111111111"],
+            role_name="SecurityAuditRole",
+            source_session=source,
+            on_result=on_result,
+        )
+
+
+def test_map_accounts_rejects_non_callable_on_result() -> None:
+    source, _ = source_session()
+
+    with pytest.raises(TypeError, match="on_result"):
+        map_accounts(
+            lambda _session, account: account.id,
+            accounts=["111111111111"],
+            role_name="SecurityAuditRole",
+            source_session=source,
+            on_result="nope",  # type: ignore[arg-type]
+        )

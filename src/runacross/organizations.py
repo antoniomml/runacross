@@ -9,7 +9,7 @@ import boto3
 from boto3.session import Session
 from botocore.config import Config
 
-from .models import Account, AccountInput, coerce_accounts
+from .models import Account, AccountInput, coerce_accounts, coerce_limit
 from .sts import build_client_config
 
 logger = logging.getLogger(__name__)
@@ -38,11 +38,13 @@ def list_accounts(
     session: Session | None = None,
     botocore_config: Config | None = None,
     exclude_accounts: Iterable[AccountInput] = (),
+    limit: int | None = None,
 ) -> list[Account]:
     """List active accounts from the caller's AWS Organization."""
 
     _validate_organization_id(organization_id)
     excluded_ids = {account.id for account in coerce_accounts(exclude_accounts)}
+    max_accounts = coerce_limit(limit)
 
     source_session = session if session is not None else boto3.Session()
     client = cast(
@@ -94,6 +96,12 @@ def list_accounts(
                     email=item.get("Email"),
                 )
             )
+            if max_accounts is not None and len(accounts) >= max_accounts:
+                logger.debug(
+                    "Reached account limit %d while listing organization accounts",
+                    max_accounts,
+                )
+                return accounts
 
     logger.debug("Discovered %d active organization accounts", len(accounts))
     return accounts
