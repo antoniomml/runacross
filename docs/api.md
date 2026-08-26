@@ -11,10 +11,12 @@ from runacross import (
     AccountRegion,
     AccountRegionResult,
     AccountResult,
+    ConfigError,
     ExecutionPhase,
     Profile,
     RegionResults,
     Role,
+    RunAcrossError,
     RunResults,
     __version__,
     map_account_regions,
@@ -31,9 +33,12 @@ functions are also public:
 - `runacross.regions.list_enabled_regions`
 
 `list_accounts` helpers accept `limit=` to return the first matching accounts.
-`map_accounts` and `map_account_regions` accept `on_result`. `show_progress()`
-returns a TTY-aware stderr reporter for that callback. `Profile` accepts
-`verify_account_id=True` to confirm `sts:GetCallerIdentity`.
+`organizations.list_accounts` also accepts `parent_id` for a root or OU, with
+nested units included by default. `map_accounts` and `map_account_regions`
+accept `on_result`. `show_progress()` returns a TTY-aware stderr reporter for
+that callback. `Profile` accepts `verify_account_id=True` to confirm
+`sts:GetCallerIdentity`. Discovery helpers raise `ConfigError` when the
+request or inventory cannot be used.
 
 ## Result conversion
 

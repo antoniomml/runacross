@@ -183,7 +183,7 @@ results = map_accounts(callback, accounts=accounts, auth=...)
 | Network | No, unless the optional organization guard is used | Yes |
 | Returns | Profiles attached to one named `sso_session` | Accounts whose current `State` is `ACTIVE` |
 | Freshness | Configured targets; can include closed accounts or stale assignments | Live organization inventory |
-| Permissions | None locally; `organizations:DescribeOrganization` if you pass the guard | `organizations:ListAccounts`; also `DescribeOrganization` with the ID guard |
+| Permissions | None locally; `organizations:DescribeOrganization` if you pass the guard | `organizations:ListAccounts`; `DescribeOrganization` with the ID guard; `ListAccountsForParent` and `ListOrganizationalUnitsForParent` with `parent_id` |
 
 You can also pass account IDs or `Account` objects from a file, API, or your
 own inventory. See [examples/README.md](examples/README.md) for short scripts.
@@ -254,6 +254,19 @@ The organization ID is a safety check, not a selector. AWS uses the source
 credentials to determine which organization is visible. RunAcross verifies
 that it matches the expected ID and then returns accounts whose current
 Organizations `State` is `ACTIVE`.
+
+To list accounts under a root or OU instead of the whole organization:
+
+```python
+accounts = list_accounts(
+    organization_id="o-exampleorgid",
+    parent_id="ou-exampleroot-workloads",
+)
+```
+
+Nested OUs are included by default. Pass `include_nested=False` for direct
+children only. Filter or inspect the returned list before `map_accounts`.
+Invalid IDs and organization mismatches raise `ConfigError`.
 
 Call `list_accounts()` without an ID when that guard is not needed.
 Discovered `Account` objects include the Organizations name and root email
@@ -494,6 +507,8 @@ Pass `duration_seconds` (900-43200, still subject to the role maximum) on
 For `Role`, the source identity needs `sts:AssumeRole` for the target roles.
 Organizations discovery additionally needs `organizations:ListAccounts`; using
 the organization ID guard also needs `organizations:DescribeOrganization`.
+Listing under a root or OU needs `organizations:ListAccountsForParent`, and
+nested OUs also need `organizations:ListOrganizationalUnitsForParent`.
 Enabled-Region discovery needs `account:ListRegions`.
 
 For `Profile`, the Identity Center permission set (or other profile identity)
@@ -550,9 +565,9 @@ See [docs/api.md](docs/api.md).
 
 ## Roadmap
 
-The next likely additions are optional: a public configuration error type and
-Organizations OU selection. The default path stays two calls and a callback.
-See [docs/roadmap.md](docs/roadmap.md).
+The next likely additions are optional: richer Organizations selectors
+and timeouts with honest thread semantics. The default path stays two
+calls and a callback. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Contributing
 

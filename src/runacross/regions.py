@@ -8,6 +8,7 @@ import boto3
 from boto3.session import Session
 from botocore.config import Config
 
+from .exceptions import ConfigError
 from .models import coerce_regions
 from .models import exclude_regions as drop_regions
 from .sts import build_client_config
@@ -61,11 +62,11 @@ def list_enabled_regions(
         for item in page.get("Regions", []):
             region_name = item.get("RegionName")
             if region_name is None:
-                raise RuntimeError(
+                raise ConfigError(
                     "AWS Account Management returned a Region without RegionName"
                 )
             if not isinstance(region_name, str):
-                raise RuntimeError(
+                raise ConfigError(
                     "AWS Account Management returned a non-string RegionName"
                 )
             names.append(region_name)

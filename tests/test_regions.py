@@ -7,6 +7,7 @@ import pytest
 from boto3.session import Session
 from botocore.config import Config
 
+from runacross import ConfigError
 from runacross.regions import list_enabled_regions
 
 
@@ -109,7 +110,7 @@ def test_list_enabled_regions_excludes_requested_names() -> None:
 def test_list_enabled_regions_rejects_response_without_name() -> None:
     session, _, _ = make_session([{"Regions": [{"RegionOptStatus": "ENABLED"}]}])
 
-    with pytest.raises(RuntimeError, match="RegionName"):
+    with pytest.raises(ConfigError, match="RegionName"):
         list_enabled_regions(session=session)
 
 
@@ -118,7 +119,7 @@ def test_list_enabled_regions_rejects_non_string_region_name() -> None:
         [{"Regions": [{"RegionName": 1, "RegionOptStatus": "ENABLED"}]}]
     )
 
-    with pytest.raises(RuntimeError, match="non-string RegionName"):
+    with pytest.raises(ConfigError, match="non-string RegionName"):
         list_enabled_regions(session=session)
 
 

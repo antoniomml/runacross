@@ -150,6 +150,27 @@ These Organizations actions do not support resource-level permissions. The
 caller must use the organization's management account or a member account
 registered as a delegated administrator.
 
+When `parent_id=` is supplied, the source also needs:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListAccountsUnderParent",
+      "Effect": "Allow",
+      "Action": [
+        "organizations:ListAccountsForParent",
+        "organizations:ListOrganizationalUnitsForParent"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+`include_nested=False` needs only `organizations:ListAccountsForParent`.
+
 ## Enabled-Region discovery
 
 `list_enabled_regions()` and `map_account_regions(..., discover_regions=True)`

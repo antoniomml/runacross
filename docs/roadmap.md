@@ -64,15 +64,21 @@ Extra capability should appear beside that shape, not inside `map_accounts`.
   `sts:GetCallerIdentity` must match the expected account ID.
 - `profile_name` and `role_name` on each result, without credentials.
 
+## 0.6
+
+- `ConfigError` and `RunAcrossError` for discovery and configuration
+  failures. Per-target errors stay on the result object.
+- `parent_id` on `organizations.list_accounts()` for a root or OU, with
+  nested OUs included by default.
+
 ## Next
 
 Optional APIs beside the default path. Suggested order:
 
-1. A public `RunAcrossError` / `ConfigError` for discovery and configuration
-   failures. Per-target callback errors stay on the result object.
-2. Reusable account selection beside the executor, especially Organizations
-   OU filters. Do not add OU parameters to `map_accounts`.
-3. Timeouts and deadlines only with honest semantics: Python threads cannot
+1. Reusable account selection beside the executor for Organizations account
+   tags, name, or regular expression. Do not add those parameters to
+   `map_accounts`.
+2. Timeouts and deadlines only with honest semantics: Python threads cannot
    cancel an in-flight AWS call. Prefer marking unfinished work as failed
    over pretending the worker stopped.
 

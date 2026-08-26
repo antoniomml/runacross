@@ -37,7 +37,7 @@ system. It does not guess profiles from `~/.aws/config`, run `aws sso login`,
 or mix Role and Profile in a single execution. It does not provide async
 execution, multiprocessing, automatic callback retries, hard timeouts,
 fail-fast behavior, automatic credential refresh, or Organizations selection
-by OU or tags. Result helpers convert data for the caller; they do not print
+by tags. Result helpers convert data for the caller; they do not print
 or choose a report format.
 
 ## Public API
@@ -133,7 +133,10 @@ discovered set.
 
 `map_accounts` and `map_account_regions` perform global validation before
 starting work. Invalid account IDs, Region names, role session names, worker
-counts, or other global configuration errors are raised directly.
+counts, or other global configuration errors are raised directly. Account and
+Region discovery helpers raise `ConfigError` (a `RunAcrossError`) when the
+request or inventory cannot be used. Per-target authentication and callback
+exceptions stay on result objects.
 
 For non-empty input:
 
@@ -270,6 +273,10 @@ The function call makes network activity explicit. It uses the Organizations
 paginator and returns only accounts whose current `State` is `ACTIVE`.
 `exclude_accounts` provides a small safety filter. `limit` keeps the first
 matching accounts after that filter, in discovery order.
+
+`parent_id` selects a root or OU. Nested OUs are included by default;
+`include_nested=False` keeps only direct children. This stays on the
+discovery helper so `map_accounts` does not grow Organizations selectors.
 
 The optional organization ID is not a selector. AWS chooses the organization
 from the credentials. RunAcross calls `DescribeOrganization` and rejects a

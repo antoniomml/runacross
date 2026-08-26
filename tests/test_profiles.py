@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 import pytest
 from botocore.config import Config
 
-from runacross import Account
+from runacross import Account, ConfigError
 from runacross.profiles import list_accounts
 
 
@@ -182,7 +182,7 @@ def test_list_accounts_rejects_unknown_sso_session(
 ) -> None:
     install_config(monkeypatch, shared_config({}))
 
-    with pytest.raises(ValueError, match="was not found"):
+    with pytest.raises(ConfigError, match="was not found"):
         list_accounts(
             pattern="AWS-Infosec-{account_id}",
             sso_session="missing",
@@ -204,7 +204,7 @@ def test_list_accounts_rejects_account_id_mismatch(
         ),
     )
 
-    with pytest.raises(ValueError, match="identifies account 111111111111"):
+    with pytest.raises(ConfigError, match="identifies account 111111111111"):
         list_accounts(
             pattern="AWS-Infosec-{account_id}",
             sso_session="control-tower",
@@ -225,7 +225,7 @@ def test_list_accounts_requires_sso_account_id_on_a_match(
         ),
     )
 
-    with pytest.raises(ValueError, match="must define a string sso_account_id"):
+    with pytest.raises(ConfigError, match="must define a string sso_account_id"):
         list_accounts(
             pattern="AWS-Infosec-{account_id}",
             sso_session="control-tower",
@@ -247,7 +247,7 @@ def test_list_accounts_rejects_unsafe_patterns(
 ) -> None:
     install_config(monkeypatch, shared_config({}))
 
-    with pytest.raises(ValueError, match="pattern"):
+    with pytest.raises(ConfigError, match="pattern"):
         list_accounts(pattern=pattern, sso_session="control-tower")
 
 
@@ -256,7 +256,7 @@ def test_list_accounts_requires_both_organization_options(
 ) -> None:
     install_config(monkeypatch, shared_config({}))
 
-    with pytest.raises(ValueError, match="organization_id"):
+    with pytest.raises(ConfigError, match="organization_id"):
         list_accounts(
             pattern="AWS-Infosec-{account_id}",
             sso_session="control-tower",
@@ -367,7 +367,7 @@ def test_list_accounts_rejects_organization_mismatch(
         lambda profile_name: FakeBotoSession(profile_name, client),
     )
 
-    with pytest.raises(ValueError, match="does not match"):
+    with pytest.raises(ConfigError, match="does not match"):
         list_accounts(
             pattern="AWS-Infosec-{account_id}",
             sso_session="control-tower",
@@ -383,7 +383,7 @@ def test_organization_profile_must_use_selected_sso_session(
     config["profiles"]["AWSAdministratorAccess-999999999999"]["sso_session"] = "legacy"
     install_config(monkeypatch, config)
 
-    with pytest.raises(ValueError, match="not 'control-tower'"):
+    with pytest.raises(ConfigError, match="not 'control-tower'"):
         list_accounts(
             pattern="AWS-Infosec-{account_id}",
             sso_session="control-tower",
