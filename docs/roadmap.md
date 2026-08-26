@@ -3,6 +3,15 @@
 The roadmap records likely directions, not release dates or commitments.
 Features should be added only when they preserve the small execution primitive.
 
+The default path stays two calls and a callback:
+
+```python
+accounts = list_accounts(...)
+results = map_accounts(callback, accounts=accounts, auth=...)
+```
+
+Extra capability should appear beside that shape, not inside `map_accounts`.
+
 ## 0.1
 
 - Explicit account IDs and `Account` objects.
@@ -30,14 +39,45 @@ Features should be added only when they preserve the small execution primitive.
 - Eager validation of profile credentials so initial credential-provider
   failures are classified as authentication failures.
 
+## 0.3.1
+
+- Minimal executable examples for Identity Center, AssumeRole, Organizations,
+  account-by-Region execution, and result export.
+- Documented difference between local profile discovery and Organizations
+  inventory.
+- Documented public API surface.
+- Result conversion: `to_dicts()`, `summary()`, `failures_by_phase()`, and
+  `error_code`, without imposing a CLI or output format.
+
+## Next
+
+Optional APIs beside the executor, only when they stay out of the default
+path:
+
+- Richer account selection when Organizations is available: OU, account tags,
+  name, regular expression, status, and include/exclude IDs.
+- Progress without a UI: a callback or iterator that yields results as they
+  complete, while the final collection remains ordered.
+- Execution limits for large scripts and Lambdas: a global deadline, a
+  per-target timeout, cooperative cancellation, and an optional rate limit.
+- Optional `Profile(..., verify_account_id=True)` so
+  `sts:GetCallerIdentity` can confirm the profile's account.
+- An opt-in retry helper for idempotent callbacks. The executor will not
+  retry arbitrary callbacks automatically.
+- Lifecycle hooks (`on_start`, `on_success`, `on_error`) if progress callbacks
+  are not enough.
+
 ## Later
 
-Candidates requiring evidence from real usage:
+Stability work that should land before much larger abstractions:
 
-- Execution lifecycle hooks.
-- Cooperative deadlines and pending-task cancellation semantics.
-- Optional rate limiting.
-- Richer Organizations selection by OU or tags.
+- Integration tests against simulated Identity Center profiles.
+- Continued Python 3.10-3.14 compatibility in CI.
+- Changelog migration examples when public names change.
+- Stronger typing around generic callbacks.
+
+Candidates that still need evidence from real usage:
+
 - A configurable role ARN resolver.
 - Additional STS session parameters.
 

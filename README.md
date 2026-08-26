@@ -155,7 +155,28 @@ def auth():
     return Profile(os.environ["RUNACROSS_PROFILE_PATTERN"])
 ```
 
-### Discovering accounts from Identity Center profiles
+## Account sources
+
+Discovery and execution stay as two steps, so you can inspect or filter
+accounts before any callback runs:
+
+```python
+accounts = list_accounts(...)
+results = map_accounts(callback, accounts=accounts, auth=...)
+```
+
+| | `runacross.profiles.list_accounts()` | `runacross.organizations.list_accounts()` |
+| --- | --- | --- |
+| Reads | Local `~/.aws/config` (including `AWS_CONFIG_FILE`) | AWS Organizations `ListAccounts` |
+| Network | No, unless the optional organization guard is used | Yes |
+| Returns | Profiles attached to one named `sso_session` | Accounts whose current `State` is `ACTIVE` |
+| Freshness | Configured targets; can include closed accounts or stale assignments | Live organization inventory |
+| Permissions | None locally; `organizations:DescribeOrganization` if you pass the guard | `organizations:ListAccounts`; also `DescribeOrganization` with the ID guard |
+
+You can also pass account IDs or `Account` objects from a file, API, or your
+own inventory. See [examples/README.md](examples/README.md) for short scripts.
+
+### Identity Center profiles
 
 When the shared AWS config is the source of the account list, discover only
 profiles attached to one named SSO session:
@@ -177,14 +198,12 @@ results = map_accounts(
 ```
 
 `sso_session` is required so profiles from different Identity Center sessions
-cannot be combined accidentally. RunAcross reads the shared AWS config through
-Botocore, including the `AWS_CONFIG_FILE` override. The profile name must match
-the pattern exactly, and its captured account ID must equal `sso_account_id`.
+cannot be combined accidentally. The profile name must match the pattern
+exactly, and its captured account ID must equal `sso_account_id`.
 
-This local discovery does not call AWS and reports configured targets, not a
-current organization inventory. It cannot determine whether an account is
-active or whether the assignment is still available. Optionally validate the
-expected AWS Organization using one profile from the selected SSO session:
+Optionally validate the expected AWS Organization using one profile from the
+selected SSO session. The guard calls only `DescribeOrganization`, not
+`ListAccounts`:
 
 ```python
 accounts = list_accounts(
@@ -195,9 +214,38 @@ accounts = list_accounts(
 )
 ```
 
-The validation calls only Organizations `DescribeOrganization`, not
-`ListAccounts`. Both organization arguments must be supplied together, and the
-validation profile must reference the selected `sso_session`.
+Both organization arguments must be supplied together, and the validation
+profile must reference the selected `sso_session`.
+
+### AWS Organizations
+
+Organizations is an optional, explicit source of the live account inventory:
+
+```python
+from runacross import map_accounts
+from runacross.organizations import list_accounts
+
+accounts = list_accounts(
+    organization_id="o-exampleorgid",
+    exclude_accounts=["111111111111"],
+)
+
+results = map_accounts(
+    who_am_i,
+    accounts=accounts,
+    role_name="SecurityAuditRole",
+)
+```
+
+The organization ID is a safety check, not a selector. AWS uses the source
+credentials to determine which organization is visible. RunAcross verifies
+that it matches the expected ID and then returns accounts whose current
+Organizations `State` is `ACTIVE`.
+
+Call `list_accounts()` without an ID when that guard is not needed.
+Discovered `Account` objects include the Organizations name and root email
+address; treat those fields as sensitive. `Account` redacts the email in
+`repr()` output, but the value remains on the object.
 
 ## Account-by-Region execution
 
@@ -263,39 +311,6 @@ regions = list_enabled_regions()
 
 `list_enabled_regions` queries AWS. It does not use Boto3 endpoint metadata.
 
-## Using AWS Organizations
-
-Organizations is an optional, explicit source of accounts:
-
-```python
-from runacross import map_accounts
-from runacross.organizations import list_accounts
-
-accounts = list_accounts(
-    organization_id="o-exampleorgid",
-    exclude_accounts=["111111111111"],
-)
-
-results = map_accounts(
-    who_am_i,
-    accounts=accounts,
-    role_name="SecurityAuditRole",
-)
-```
-
-The organization ID is a safety check, not a selector. AWS uses the source
-credentials to determine which organization is visible. RunAcross verifies
-that it matches the expected ID and then returns accounts whose current
-Organizations `State` is `ACTIVE`.
-
-Call `list_accounts()` without an ID when that guard is not needed.
-Discovered `Account` objects include the Organizations name and root email
-address; treat those fields as sensitive. `Account` redacts the email in
-`repr()` output, but the value remains on the object.
-
-See `examples/organization_accounts.py` for a complete discovery-plus-execution
-script.
-
 ## Filters
 
 Both executors accept `exclude_accounts`. `map_account_regions` also accepts
@@ -327,7 +342,9 @@ for result in results:
 ```
 
 `auth` covers role assumption and profile resolution. In 0.1 this phase was
-named `assume_role`.
+named `assume_role`. Failed results also expose `result.error_code` when the
+stored exception is a Botocore `ClientError`; RunAcross does not parse
+exception text and does not store credentials.
 
 `RunResults` and `RegionResults` preserve input order and provide:
 
@@ -336,12 +353,30 @@ results.successful
 results.failed
 results.success_count
 results.failure_count
+results.failures_by_phase()
+results.summary()
+results.to_dicts()
 ```
+
+`to_dicts()` is conversion, not printing. Use it for JSON, CSV, logging, or
+your own reports:
+
+```python
+import json
+
+print(json.dumps(results.summary()))
+print(json.dumps(results.to_dicts(), indent=2))
+```
+
+Serialized records include account IDs and optional names, not Organizations
+email addresses. Callback return values are included as-is; encode them in
+your application if they are not JSON-serializable.
 
 Use `result.unwrap()` when code wants the typed value or the stored exception.
 
 RunAcross does not retry the callback because arbitrary functions may not be
-idempotent.
+idempotent. Botocore may still retry individual AWS requests on clients that
+RunAcross or your callback create.
 
 ## Concurrency
 
@@ -437,13 +472,33 @@ callback exception messages are emitted at DEBUG and must not contain secrets.
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
+## Examples
+
+Minimal scripts live in [examples/](examples/):
+
+- AssumeRole: [examples/caller_identity.py](examples/caller_identity.py)
+- Identity Center profiles: [examples/identity_center_profiles.py](examples/identity_center_profiles.py)
+- Organizations discovery: [examples/organization_accounts.py](examples/organization_accounts.py)
+- Account and Region execution: [examples/ec2_inventory.py](examples/ec2_inventory.py)
+- Result export: [examples/export_results.py](examples/export_results.py)
+
+## Public API
+
+The supported surface is the names in `runacross.__all__` plus:
+
+- `runacross.profiles.list_accounts`
+- `runacross.organizations.list_accounts`
+- `runacross.regions.list_enabled_regions`
+
+Everything else, including `runacross.sts` and helpers in `runacross.models`
+that are not re-exported, is internal and may change without a deprecation.
+See [docs/api.md](docs/api.md).
+
 ## Roadmap
 
-Planned areas after 0.2 include lifecycle hooks, cooperative deadlines, and
-richer Organizations selectors. RunAcross will remain a library primitive
-rather than becoming an orchestration framework.
-
-See [docs/roadmap.md](docs/roadmap.md).
+The next likely additions are optional: richer account selection, progress
+callbacks, and execution limits. The default path stays two calls and a
+callback. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Contributing
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from botocore.exceptions import ClientError
 
 from runacross import (
     Account,
@@ -177,6 +178,14 @@ def test_run_results_exposes_ordered_subsets_and_counts() -> None:
     assert results.success_count == 2
     assert results.failure_count == 1
     assert repr(results) == "RunResults(success_count=2, failure_count=1)"
+    assert results.failures_by_phase()[ExecutionPhase.AUTH] == ()
+    assert results.failures_by_phase()[ExecutionPhase.WORKER] == (failed,)
+    assert results.summary() == {
+        "total": 3,
+        "success_count": 2,
+        "failure_count": 1,
+        "failures_by_phase": {"auth": 0, "worker": 1},
+    }
 
 
 def test_empty_run_results_is_valid() -> None:
@@ -185,6 +194,115 @@ def test_empty_run_results_is_valid() -> None:
     assert list(results) == []
     assert results.success_count == 0
     assert results.failure_count == 0
+    assert results.to_dicts() == []
+    assert results.summary() == {
+        "total": 0,
+        "success_count": 0,
+        "failure_count": 0,
+        "failures_by_phase": {"auth": 0, "worker": 0},
+    }
+
+
+def test_account_result_error_code_reads_botocore_response() -> None:
+    error = ClientError(
+        {"Error": {"Code": "ExpiredToken", "Message": "expired"}},
+        "AssumeRole",
+    )
+    failed = AccountResult[str](
+        account=Account(id="111111111111", name="Security", email="aws@example.com"),
+        value=None,
+        error=error,
+        duration_seconds=0.1,
+        phase=ExecutionPhase.AUTH,
+    )
+    successful = AccountResult(
+        account=Account(id="111111111111"),
+        value="arn:aws:iam::111111111111:role/audit",
+        error=None,
+        duration_seconds=0.2,
+        phase=None,
+    )
+
+    assert failed.error_code == "ExpiredToken"
+    assert successful.error_code is None
+    assert failed.to_dict() == {
+        "account_id": "111111111111",
+        "account_name": "Security",
+        "success": False,
+        "value": None,
+        "error_type": "ClientError",
+        "error_message": str(error),
+        "error_code": "ExpiredToken",
+        "phase": "auth",
+        "duration_seconds": 0.1,
+    }
+    assert "aws@example.com" not in str(failed.to_dict())
+    assert RunResults([successful, failed]).to_dicts() == [
+        successful.to_dict(),
+        failed.to_dict(),
+    ]
+
+
+def test_error_code_ignores_plain_exceptions() -> None:
+    failed = AccountResult[str](
+        account=Account(id="111111111111"),
+        value=None,
+        error=RuntimeError("boom"),
+        duration_seconds=0.1,
+        phase=ExecutionPhase.WORKER,
+    )
+
+    assert failed.error_code is None
+    assert failed.to_dict()["error_type"] == "RuntimeError"
+    assert failed.to_dict()["error_code"] is None
+
+
+def test_error_code_requires_a_non_empty_botocore_code() -> None:
+    class MalformedClientError(Exception):
+        def __init__(self, response: object) -> None:
+            super().__init__("malformed")
+            self.response = response
+
+    empty = ClientError({"Error": {"Code": ""}}, "AssumeRole")
+    region_failure = AccountRegionResult[str](
+        target=AccountRegion(account=Account(id="111111111111"), region="eu-west-1"),
+        value=None,
+        error=RuntimeError("boom"),
+        duration_seconds=0.1,
+        phase=ExecutionPhase.WORKER,
+    )
+
+    assert (
+        AccountResult[str](
+            account=Account(id="111111111111"),
+            value=None,
+            error=MalformedClientError("denied"),
+            duration_seconds=0.1,
+            phase=ExecutionPhase.AUTH,
+        ).error_code
+        is None
+    )
+    assert (
+        AccountResult[str](
+            account=Account(id="111111111111"),
+            value=None,
+            error=MalformedClientError({"Error": "denied"}),
+            duration_seconds=0.1,
+            phase=ExecutionPhase.AUTH,
+        ).error_code
+        is None
+    )
+    assert (
+        AccountResult[str](
+            account=Account(id="111111111111"),
+            value=None,
+            error=empty,
+            duration_seconds=0.1,
+            phase=ExecutionPhase.AUTH,
+        ).error_code
+        is None
+    )
+    assert region_failure.error_code is None
 
 
 def test_package_version_is_a_non_empty_string() -> None:
@@ -259,3 +377,12 @@ def test_region_results_exposes_ordered_subsets_and_counts() -> None:
     assert results.success_count == 1
     assert results.failure_count == 1
     assert repr(results) == "RegionResults(success_count=1, failure_count=1)"
+    assert results.failures_by_phase()[ExecutionPhase.WORKER] == (failed,)
+    assert results.summary() == {
+        "total": 2,
+        "success_count": 1,
+        "failure_count": 1,
+        "failures_by_phase": {"auth": 0, "worker": 1},
+    }
+    assert results.to_dicts()[0]["region"] == "eu-west-1"
+    assert results.to_dicts()[1]["error_type"] == "RuntimeError"

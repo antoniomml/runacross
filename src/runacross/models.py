@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Generic, TypeVar, cast, overload
+from typing import Any, Generic, TypeVar, cast, overload
 
 _ACCOUNT_ID_PATTERN = re.compile(r"[0-9]{12}\Z")
 _REGION_PATTERN = re.compile(r"[a-z]{2}(-[a-z0-9]+)+-\d+\Z")
@@ -124,6 +124,78 @@ class ExecutionPhase(str, Enum):
     WORKER = "worker"
 
 
+def _aws_error_code(error: Exception | None) -> str | None:
+    """Return a structured AWS error code without parsing exception text.
+
+    Botocore ``ClientError`` values expose the code at
+    ``error.response["Error"]["Code"]``. Other exceptions return ``None``.
+    """
+
+    if error is None:
+        return None
+    response = getattr(error, "response", None)
+    if not isinstance(response, Mapping):
+        return None
+    details = response.get("Error")
+    if not isinstance(details, Mapping):
+        return None
+    code = details.get("Code")
+    if isinstance(code, str) and code:
+        return code
+    return None
+
+
+def _outcome_dict(
+    *,
+    account: Account,
+    value: object,
+    error: Exception | None,
+    duration_seconds: float,
+    phase: ExecutionPhase | None,
+    region: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "account_id": account.id,
+        "account_name": account.name,
+        "success": error is None,
+        "value": value if error is None else None,
+        "error_type": type(error).__name__ if error is not None else None,
+        "error_message": str(error) if error is not None else None,
+        "error_code": _aws_error_code(error),
+        "phase": None if phase is None else phase.value,
+        "duration_seconds": duration_seconds,
+    }
+    if region is not None:
+        payload["region"] = region
+    return payload
+
+
+def _failures_by_phase(
+    results: Iterable[AccountResult[Any] | AccountRegionResult[Any]],
+) -> dict[ExecutionPhase, tuple[AccountResult[Any] | AccountRegionResult[Any], ...]]:
+    grouped: dict[
+        ExecutionPhase, list[AccountResult[Any] | AccountRegionResult[Any]]
+    ] = {phase: [] for phase in ExecutionPhase}
+    for result in results:
+        if not result.success and result.phase is not None:
+            grouped[result.phase].append(result)
+    return {phase: tuple(items) for phase, items in grouped.items()}
+
+
+def _summary(
+    results: Sequence[AccountResult[Any] | AccountRegionResult[Any]],
+) -> dict[str, Any]:
+    by_phase = _failures_by_phase(results)
+    return {
+        "total": len(results),
+        "success_count": sum(result.success for result in results),
+        "failure_count": sum(not result.success for result in results),
+        "failures_by_phase": {
+            phase.value: len(items) for phase, items in by_phase.items()
+        },
+    }
+
+
 def _validate_outcome(
     *,
     value: object,
@@ -172,6 +244,23 @@ class AccountResult(Generic[T_co]):
             raise self.error
         return cast(T_co, self.value)
 
+    @property
+    def error_code(self) -> str | None:
+        """Structured AWS error code, if the stored exception exposes one."""
+
+        return _aws_error_code(self.error)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-friendly record without credentials or email."""
+
+        return _outcome_dict(
+            account=self.account,
+            value=self.value,
+            error=self.error,
+            duration_seconds=self.duration_seconds,
+            phase=self.phase,
+        )
+
 
 @dataclass(frozen=True)
 class AccountRegionResult(Generic[T_co]):
@@ -217,6 +306,24 @@ class AccountRegionResult(Generic[T_co]):
         if self.error is not None:
             raise self.error
         return cast(T_co, self.value)
+
+    @property
+    def error_code(self) -> str | None:
+        """Structured AWS error code, if the stored exception exposes one."""
+
+        return _aws_error_code(self.error)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-friendly record without credentials or email."""
+
+        return _outcome_dict(
+            account=self.account,
+            value=self.value,
+            error=self.error,
+            duration_seconds=self.duration_seconds,
+            phase=self.phase,
+            region=self.region,
+        )
 
 
 class RunResults(Sequence[AccountResult[T_co]], Generic[T_co]):
@@ -275,6 +382,27 @@ class RunResults(Sequence[AccountResult[T_co]], Generic[T_co]):
 
         return len(self) - self.success_count
 
+    def to_dicts(self) -> list[dict[str, Any]]:
+        """Convert results to dictionaries for JSON, CSV, or logging."""
+
+        return [result.to_dict() for result in self._results]
+
+    def failures_by_phase(
+        self,
+    ) -> dict[ExecutionPhase, tuple[AccountResult[T_co], ...]]:
+        """Group failed results by phase, preserving input order."""
+
+        grouped = _failures_by_phase(self._results)
+        return {
+            phase: cast(tuple[AccountResult[T_co], ...], items)
+            for phase, items in grouped.items()
+        }
+
+    def summary(self) -> dict[str, Any]:
+        """Return counts suitable for logs or reports."""
+
+        return _summary(self._results)
+
 
 class RegionResults(Sequence[AccountRegionResult[T_co]], Generic[T_co]):
     """An immutable, ordered collection of per-account-and-Region results."""
@@ -331,3 +459,24 @@ class RegionResults(Sequence[AccountRegionResult[T_co]], Generic[T_co]):
         """Number of failed results."""
 
         return len(self) - self.success_count
+
+    def to_dicts(self) -> list[dict[str, Any]]:
+        """Convert results to dictionaries for JSON, CSV, or logging."""
+
+        return [result.to_dict() for result in self._results]
+
+    def failures_by_phase(
+        self,
+    ) -> dict[ExecutionPhase, tuple[AccountRegionResult[T_co], ...]]:
+        """Group failed results by phase, preserving input order."""
+
+        grouped = _failures_by_phase(self._results)
+        return {
+            phase: cast(tuple[AccountRegionResult[T_co], ...], items)
+            for phase, items in grouped.items()
+        }
+
+    def summary(self) -> dict[str, Any]:
+        """Return counts suitable for logs or reports."""
+
+        return _summary(self._results)

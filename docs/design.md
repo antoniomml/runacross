@@ -34,9 +34,11 @@ accounts x regions -> Role or Profile -> Session -> callback -> results
 RunAcross is not a scanner, CSPM, resource inventory, policy engine,
 credential store, workflow scheduler, CLI, or infrastructure deployment
 system. It does not guess profiles from `~/.aws/config`, run `aws sso login`,
-or mix Role and Profile in a single execution. Version 0.2 does not provide
-async execution, multiprocessing, callback retries, hard timeouts, fail-fast
-behavior, automatic credential refresh, or advanced Organizations selectors.
+or mix Role and Profile in a single execution. It does not provide async
+execution, multiprocessing, automatic callback retries, hard timeouts,
+fail-fast behavior, automatic credential refresh, or Organizations selection
+by OU or tags. Result helpers convert data for the caller; they do not print
+or choose a report format.
 
 ## Public API
 
@@ -93,9 +95,13 @@ contain exactly 12 ASCII digits. Inputs are not silently deduplicated.
 and failure phase. `ExecutionPhase` distinguishes `auth` from `worker`.
 `success` is based on the absence of an error, so a callback may successfully
 return `None`. Version 0.1 used `assume_role` for the authentication phase.
+Failed results expose `error_code` when the stored exception is a Botocore
+`ClientError`.
 
 `RunResults[T]` is an immutable `Sequence` preserving input order. It exposes
-`successful`, `failed`, `success_count`, and `failure_count`.
+`successful`, `failed`, `success_count`, `failure_count`, `to_dicts()`,
+`failures_by_phase()`, and `summary()`. `to_dicts()` omits Organizations
+email addresses and never includes credentials.
 
 `map_account_regions` uses a three-argument callback and `RegionResults[T]`.
 Each item is an `AccountRegionResult` whose identity is `AccountRegion`.
@@ -171,7 +177,9 @@ not converted into account failures.
 The original exception type and message remain inspectable. RunAcross clears
 retained traceback frames before returning failures so results do not keep
 Sessions and temporary credentials alive through frame locals. Full tracebacks
-are available through DEBUG logging at the point of failure.
+are available through DEBUG logging at the point of failure. `error_code`
+reads `response["Error"]["Code"]` from Botocore client errors and does not
+parse exception text.
 
 RunAcross does not retry an arbitrary callback. Botocore may retry individual
 AWS requests according to each client's configuration.
@@ -237,7 +245,9 @@ session, preventing an unrelated profile from satisfying the safety guard.
 
 Discovery and execution remain separate: `list_accounts` supplies `Account`
 objects, while `Profile(pattern)` independently supplies Sessions during the
-execution.
+execution. Local discovery reports configured targets and can include closed
+accounts or stale assignments. `organizations.list_accounts()` queries the
+live ACTIVE inventory and needs additional IAM permissions.
 
 ## Organizations
 
