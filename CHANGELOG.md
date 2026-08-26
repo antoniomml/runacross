@@ -7,6 +7,24 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-26
+
+### Added
+
+- `ConfigError` and `RunAcrossError` for discovery and configuration
+  failures. Per-target authentication and callback errors stay on result
+  objects.
+- `parent_id` on `organizations.list_accounts()` to list ACTIVE accounts
+  under a root or OU. Nested OUs are included by default;
+  `include_nested=False` keeps only direct children.
+
+### Changed
+
+- Account and Region discovery helpers raise `ConfigError` instead of
+  `ValueError` or `RuntimeError` when configuration or inventory data
+  cannot be used. `TypeError` is unchanged. AWS `ClientError` responses
+  are not wrapped.
+
 ## [0.5.0] - 2026-08-26
 
 ### Added
@@ -110,7 +128,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - Constructing subscripted `AccountResult[T](...)` on Python 3.10.
 
-[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/antoniomml/runacross/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/antoniomml/runacross/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/antoniomml/runacross/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/antoniomml/runacross/compare/v0.3.0...v0.3.1
