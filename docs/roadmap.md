@@ -82,15 +82,16 @@ Extra capability should appear beside that shape, not inside `map_accounts`.
 - Validate realistic paginated work with partial failures and record the
   concurrency/memory tradeoff.
 
-## Next: 1.0 candidate
+## Next: stable 1.0
 
 Stability takes priority over more selectors or execution modes. The
 [September 2026 audit](audit-2026-09.md) records the evidence and tradeoffs.
 
-The technical stabilization gates are covered in 0.7. Publish an opt-in
-candidate after release validation and gather downstream Role/Profile script
-evidence before stable 1.0. The [readiness record](readiness-1.0.md) defines the
-acceptance criteria; there is no feature expansion required to reach 1.0.
+The technical stabilization gates are covered in 0.7. The 1.0.0rc1 candidate
+uses the same runtime and proposes freezing its public contract. Gather
+downstream Role/Profile script evidence before stable 1.0. The
+[readiness record](readiness-1.0.md) defines the acceptance criteria; there is
+no feature expansion required to reach 1.0.
 
 ## 0.6.1 maintenance
 

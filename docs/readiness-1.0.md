@@ -4,6 +4,11 @@ Decision date: September 6, 2026. The 0.7.0 stabilization work supports a
 release candidate, not an immediate stable 1.0 declaration. A candidate is
 an invitation to validate the proposed contract in downstream scripts.
 
+The proposed `1.0.0rc1` contains the same runtime source, tests and dependency
+requirements as 0.7.0. Only package version and release documentation change.
+The candidate must pass the release workflow and public-install verification
+independently; it is not the default installation and is not stable 1.0.
+
 ## Scope to freeze
 
 The [public API contract](api.md) covers the two synchronous executors, Role
