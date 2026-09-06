@@ -7,6 +7,43 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-06
+
+### Added
+
+- Public `ResultCallback[ResultT]` typing protocol for synchronous observers,
+  with downstream mypy checks for result inference and invalid callback usage.
+- Offline SDK integration coverage using real STS, Organizations, Account,
+  EC2 and Identity Center clients/providers with Botocore Stubber.
+- A paginated inventory benchmark with configurable synthetic latency and
+  partial failures, plus a documented public contract and 1.0 readiness record.
+
+### Changed
+
+- Recognizable async callbacks, observers and Profile resolvers are rejected
+  before authentication. Inspectable callback signatures are validated early.
+- Synchronous wrappers returning awaitables or async generators no longer
+  report success: workers fail in `worker`, resolvers in `auth`, and observer
+  errors propagate after running work is joined. Native coroutines are closed.
+- `discover_regions` and `show_progress(disable=...)` reject non-boolean values.
+- Result constructors reject invalid account/error/phase types and non-finite
+  or non-numeric durations. Malformed inventory account fields and Region
+  names consistently raise `ConfigError`.
+- Package maturity is now Beta. CI tests the exact minimum Boto3 and Botocore,
+  and includes the downstream typing fixtures.
+
+### Migration from 0.6.x
+
+- Replace `async def` callbacks with synchronous functions. RunAcross never
+  awaited those functions in older releases; reported success could be misleading.
+- Callbacks must accept `(session, account)` or `(session, account, region)`;
+  observers accept `(result, *, completed, total)`. Wrong inspectable signatures
+  now raise `TypeError` before a run rather than becoming per-target failures.
+- Use `ExecutionPhase` members in manually constructed results, actual exceptions
+  for `error`, finite nonnegative numeric durations, and real boolean flags.
+- Catch `ConfigError` for malformed inventory fields. Per-target AWS errors
+  still retain their original exception types and phases.
+
 ## [0.6.1] - 2026-09-06
 
 ### Fixed
@@ -156,7 +193,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - Constructing subscripted `AccountResult[T](...)` on Python 3.10.
 
-[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/antoniomml/runacross/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/antoniomml/runacross/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/antoniomml/runacross/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/antoniomml/runacross/compare/v0.4.0...v0.5.0

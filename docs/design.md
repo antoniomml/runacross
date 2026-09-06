@@ -78,7 +78,7 @@ def map_accounts(
     botocore_config: Config | None = None,
     max_workers: int = 10,
     exclude_accounts: Iterable[str | Account] = (),
-    on_result: Callable[..., None] | None = None,
+    on_result: ResultCallback[AccountResult[T]] | None = None,
 ) -> RunResults[T]: ...
 ```
 
@@ -121,7 +121,7 @@ def map_account_regions(
     exclude_accounts: Iterable[str | Account] = (),
     exclude_regions: Iterable[str] = (),
     discover_regions: bool = False,
-    on_result: Callable[..., None] | None = None,
+    on_result: ResultCallback[AccountRegionResult[T]] | None = None,
     ...
 ) -> RegionResults[T]: ...
 ```

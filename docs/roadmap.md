@@ -71,18 +71,26 @@ Extra capability should appear beside that shape, not inside `map_accounts`.
 - `parent_id` on `organizations.list_accounts()` for a root or OU, with
   nested OUs included by default.
 
-## Next
+## 0.7 stabilization
+
+- Reject async callbacks, observers and resolvers, including asynchronous
+  returns hidden behind synchronous wrappers.
+- Validate callable signatures and document the public error/ordering contract.
+- Add `ResultCallback` and downstream typing checks.
+- Exercise real SDK clients, paginators and Identity Center credential providers
+  with simulated responses and no live AWS requests.
+- Validate realistic paginated work with partial failures and record the
+  concurrency/memory tradeoff.
+
+## Next: 1.0 candidate
 
 Stability takes priority over more selectors or execution modes. The
 [September 2026 audit](audit-2026-09.md) records the evidence and tradeoffs.
 
-1. Expand SDK integration tests around credential providers and paginated
-   responses, supplementing small fakes with Botocore Stubber.
-2. Measure representative paginated workloads before changing worker defaults
-   or introducing streaming results; keep the offline benchmark reproducible.
-3. Improve callback and progress typing and async-callback diagnostics while
-   preserving the small synchronous API.
-4. Gather downstream compatibility evidence before promising a stable 1.0.
+The technical stabilization gates are covered in 0.7. Publish an opt-in
+candidate after release validation and gather downstream Role/Profile script
+evidence before stable 1.0. The [readiness record](readiness-1.0.md) defines the
+acceptance criteria; there is no feature expansion required to reach 1.0.
 
 ## 0.6.1 maintenance
 

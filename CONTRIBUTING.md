@@ -19,7 +19,7 @@ Run the complete local checks:
 pytest --cov=runacross --cov-report=term-missing --cov-fail-under=90
 ruff check .
 ruff format --check .
-mypy src/
+mypy src/ tests/typing/
 python -m pip_audit
 ```
 
@@ -28,12 +28,17 @@ small fakes, `unittest.mock`, or Botocore `Stubber`.
 The autouse fixture isolates local AWS configuration and credentials and
 blocks Botocore HTTP transport. Do not bypass it to contact a real account.
 For test-only development, install `.[test]`; CI covers Python 3.10-3.14,
-Windows on 3.14, and the declared minimum Boto3 on Python 3.10.
+Windows on 3.14, and the declared minimum Boto3/Botocore on Python 3.10.
+`tests/integration/` exercises actual SDK clients, paginators, STS and Identity
+Center providers with Stubber and synthetic configuration. It remains offline.
+`tests/typing/` checks downstream inference and deliberately invalid usages;
+its `type: ignore` lines are negative tests enforced by mypy's strict mode.
 
 Measure executor overhead without AWS access:
 
 ```bash
 python benchmarks/pool.py
+python benchmarks/inventory.py --latency-ms 50
 ```
 
 Package checks should use a fresh output directory so old releases cannot
