@@ -129,6 +129,9 @@ def map_account_regions(
     excluded_region_names = coerce_regions(exclude_regions)
     if not target_accounts:
         return RegionResults()
+    selected_regions = drop_regions(requested_regions or (), excluded_region_names)
+    if not discover_regions and not selected_regions:
+        return RegionResults()
 
     bound = resolved_auth.bind(
         max_workers=max_workers,
@@ -155,7 +158,6 @@ def map_account_regions(
         )
     else:
         assert requested_regions is not None
-        selected_regions = drop_regions(requested_regions, excluded_region_names)
         targets = tuple(
             AccountRegion(account=account, region=region)
             for account in target_accounts

@@ -14,6 +14,7 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - Resolve Profile names once per authentication attempt, keep result metadata
   consistent with the selected profile, and isolate resolver errors per target.
 - Return no accounts or perform discovery when `limit=0` on either account source.
+- Avoid authentication setup when explicit Regions are empty or fully excluded.
 - Clear tracebacks from nested exception groups as well as chained exceptions.
 - Stop submitting targets and cancel queued work when an observer or a
   `BaseException` interrupts execution. Running callbacks are still joined.
