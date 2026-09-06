@@ -4,6 +4,7 @@ import logging
 from importlib.metadata import PackageNotFoundError, version
 
 from .auth import Profile, Role
+from .callbacks import ResultCallback
 from .exceptions import ConfigError, RunAcrossError
 from .executor import map_account_regions, map_accounts
 from .models import (
@@ -33,6 +34,7 @@ __all__ = [
     "ExecutionPhase",
     "Profile",
     "RegionResults",
+    "ResultCallback",
     "Role",
     "RunAcrossError",
     "RunResults",

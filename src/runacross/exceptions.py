@@ -2,8 +2,10 @@
 
 
 class RunAcrossError(Exception):
-    """Base error for failures raised by RunAcross itself.
+    """Base for RunAcross-specific configuration/discovery errors.
 
+    Built-in ``TypeError`` and ``ValueError`` validation failures do not
+    inherit from this class.
     Per-target authentication and callback exceptions stay on result objects
     and are not wrapped in this hierarchy.
     """

@@ -204,11 +204,16 @@ def _account_from_organization_item(item: Any) -> Account | None:
     account_id = item.get("Id")
     if account_id is None:
         raise ConfigError("AWS Organizations returned an account without an Id")
-    return Account(
-        id=account_id,
-        name=item.get("Name"),
-        email=item.get("Email"),
-    )
+    try:
+        return Account(
+            id=account_id,
+            name=item.get("Name"),
+            email=item.get("Email"),
+        )
+    except (TypeError, ValueError) as error:
+        raise ConfigError(
+            "AWS Organizations returned invalid account fields"
+        ) from error
 
 
 def _validate_organization_id(organization_id: str | None) -> None:

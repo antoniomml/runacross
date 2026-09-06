@@ -13,6 +13,7 @@ from boto3.session import Session
 from botocore.config import Config
 
 from .auth import Auth, BoundAuth, resolve_auth
+from .callbacks import ResultCallback, _validate_callback, _validate_callback_value
 from .models import (
     Account,
     AccountInput,
@@ -55,11 +56,11 @@ def map_accounts(
     botocore_config: Config | None = None,
     max_workers: int = 10,
     exclude_accounts: Iterable[AccountInput] = (),
-    on_result: Callable[..., None] | None = None,
+    on_result: ResultCallback[AccountResult[T]] | None = None,
 ) -> RunResults[T]:
     """Execute a callback concurrently in multiple AWS accounts."""
 
-    _validate_function(function)
+    _validate_callback(function, label="function", positional=2)
     _validate_max_workers(max_workers)
     _validate_on_result(on_result)
     resolved_auth = resolve_auth(
@@ -104,13 +105,15 @@ def map_account_regions(
     exclude_accounts: Iterable[AccountInput] = (),
     exclude_regions: Iterable[str] = (),
     discover_regions: bool = False,
-    on_result: Callable[..., None] | None = None,
+    on_result: ResultCallback[AccountRegionResult[T]] | None = None,
 ) -> RegionResults[T]:
     """Execute a callback concurrently for each account and Region pair."""
 
-    _validate_function(function)
+    _validate_callback(function, label="function", positional=3)
     _validate_max_workers(max_workers)
     _validate_on_result(on_result)
+    if not isinstance(discover_regions, bool):
+        raise TypeError("discover_regions must be a bool")
     if not discover_regions and regions is None:
         raise TypeError(
             "map_account_regions requires regions=... or discover_regions=True"
@@ -198,11 +201,6 @@ def map_account_regions(
     return RegionResults(ordered)
 
 
-def _validate_function(function: object) -> None:
-    if not callable(function):
-        raise TypeError("function must be callable")
-
-
 def _validate_max_workers(max_workers: int) -> None:
     if isinstance(max_workers, bool) or not isinstance(max_workers, int):
         raise TypeError("max_workers must be an integer")
@@ -211,12 +209,12 @@ def _validate_max_workers(max_workers: int) -> None:
 
 
 def _validate_on_result(on_result: object) -> None:
-    if on_result is not None and not callable(on_result):
-        raise TypeError("on_result must be callable or None")
+    if on_result is not None:
+        _validate_callback(on_result, label="on_result", positional=1, progress=True)
 
 
 def _notify_result(
-    on_result: Callable[..., None] | None,
+    on_result: ResultCallback[ResultT] | None,
     result: ResultT,
     *,
     completed: int,
@@ -224,7 +222,11 @@ def _notify_result(
 ) -> None:
     if on_result is None:
         return
-    on_result(result, completed=completed, total=total)
+    # Widen the return type to validate untyped/decorated observers at runtime.
+    observe = cast(Callable[..., object], on_result)
+    _validate_callback_value(
+        observe(result, completed=completed, total=total), label="on_result"
+    )
 
 
 def _discovery_failure_count(discoveries: Sequence[_Discovery]) -> int:
@@ -240,7 +242,7 @@ def _region_progress_total(
 
 def _notify_discovery_failures(
     discoveries: Sequence[_Discovery],
-    on_result: Callable[..., None] | None,
+    on_result: ResultCallback[AccountRegionResult[T]] | None,
     *,
     total: int,
 ) -> int:
@@ -251,7 +253,7 @@ def _notify_discovery_failures(
         completed += 1
         _notify_result(
             on_result,
-            discovered.failure,
+            cast(AccountRegionResult[T], discovered.failure),
             completed=completed,
             total=total,
         )
@@ -263,7 +265,7 @@ def _run_pool(
     worker: Callable[[ItemT], ResultT],
     *,
     max_workers: int,
-    on_result: Callable[..., None] | None = None,
+    on_result: ResultCallback[ResultT] | None = None,
     progress_completed: int = 0,
     progress_total: int | None = None,
 ) -> list[ResultT]:
@@ -336,6 +338,7 @@ def _execute_account(
     logger.debug("Starting worker for account %s", account.id)
     try:
         value = function(session, account)
+        _validate_callback_value(value, label="function")
     except Exception as error:
         return _account_failure(
             account,
@@ -394,6 +397,7 @@ def _execute_account_region(
     )
     try:
         value = function(session, target.account, target.region)
+        _validate_callback_value(value, label="function")
     except Exception as error:
         return _account_region_failure(
             target,

@@ -4,6 +4,7 @@ import re
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
+from math import isfinite
 from typing import Any, Generic, TypeVar, cast, overload
 
 _ACCOUNT_ID_PATTERN = re.compile(r"[0-9]{12}\Z")
@@ -219,6 +220,16 @@ def _validate_outcome(
     duration_seconds: float,
     phase: ExecutionPhase | None,
 ) -> None:
+    if isinstance(duration_seconds, bool) or not isinstance(
+        duration_seconds, (int, float)
+    ):
+        raise TypeError("duration_seconds must be a number")
+    if not isfinite(duration_seconds):
+        raise ValueError("duration_seconds must be finite")
+    if error is not None and not isinstance(error, Exception):
+        raise TypeError("error must be an Exception or None")
+    if phase is not None and not isinstance(phase, ExecutionPhase):
+        raise TypeError("phase must be an ExecutionPhase or None")
     if duration_seconds < 0:
         raise ValueError("duration_seconds cannot be negative")
     if error is None and phase is not None:
@@ -242,6 +253,8 @@ class AccountResult(Generic[T_co]):
     role_name: str | None = None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.account, Account):
+            raise TypeError("account must be an Account")
         _validate_outcome(
             value=self.value,
             error=self.error,

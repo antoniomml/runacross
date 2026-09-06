@@ -10,6 +10,10 @@ isolates errors, and aggregates results so your code can focus on the AWS
 operation itself. Authentication is pluggable: assume an IAM role in every
 account, or use named AWS CLI / IAM Identity Center profiles.
 
+RunAcross 0.7 is a beta stabilization release toward 1.0. The
+[public contract](docs/api.md) and [readiness record](docs/readiness-1.0.md)
+describe the compatibility commitments and remaining validation.
+
 [Quickstart](#quickstart) · [API](docs/api.md) · [Examples](examples/README.md) ·
 [Operational guide](docs/operations.md) · [Contributing](CONTRIBUTING.md)
 
@@ -45,6 +49,9 @@ python -m pip install -e ".[dev]"
 ## Quickstart
 
 Write a function for **one** account. RunAcross runs it in many:
+
+Callbacks must be synchronous. `async def` callbacks and observers are rejected;
+return ordinary values rather than awaitables or async generators.
 
 ```python
 from runacross import map_accounts

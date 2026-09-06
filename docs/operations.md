@@ -89,3 +89,17 @@ measured with `tracemalloc`, checks output order, and makes no AWS calls.
 It measures scheduler overhead for trivial callbacks, not AWS throughput,
 process RSS, or application payload memory. See the
 [audit measurements](audit-2026-09.md) for a recorded sample.
+
+For a more representative offline workload:
+
+```bash
+python benchmarks/inventory.py --latency-ms 50
+```
+
+This runs real SDK clients and EC2 paginators against Stubber responses, with
+configurable latency, account/Region counts, and failures. It checks order,
+partial failures, exported item counts and STS reuse. The
+[readiness record](readiness-1.0.md) includes measurements and their limits.
+Session and client setup can dominate fast callbacks and consume substantial
+memory even when future submission is bounded. Tune concurrency using actual
+workload measurements rather than assuming ten workers is always faster.
