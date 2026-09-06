@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 import traceback
 from collections.abc import Callable, Iterable, Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor
+from itertools import islice
+from queue import SimpleQueue
 from time import perf_counter
 from typing import NamedTuple, TypeVar, cast
 
@@ -273,19 +275,36 @@ def _run_pool(
         max_workers=max_workers,
         thread_name_prefix="runacross",
     ) as executor:
-        future_indexes = {
-            executor.submit(worker, item): index for index, item in enumerate(items)
-        }
-        for future in as_completed(future_indexes):
-            result = future.result()
-            ordered[future_indexes[future]] = result
-            completed += 1
-            _notify_result(
-                on_result,
-                result,
-                completed=completed,
-                total=total,
-            )
+        remaining = iter(enumerate(items))
+        completions: SimpleQueue[Future[ResultT]] = SimpleQueue()
+        future_indexes = {}
+        try:
+            for index, item in islice(remaining, max_workers):
+                future = executor.submit(worker, item)
+                future_indexes[future] = index
+                future.add_done_callback(completions.put)
+            while future_indexes:
+                future = completions.get()
+                index = future_indexes.pop(future)
+                result = future.result()
+                ordered[index] = result
+                completed += 1
+                _notify_result(
+                    on_result,
+                    result,
+                    completed=completed,
+                    total=total,
+                )
+                for index, item in islice(remaining, 1):
+                    future = executor.submit(worker, item)
+                    future_indexes[future] = index
+                    future.add_done_callback(completions.put)
+        except BaseException:
+            # Running callbacks cannot be stopped safely. Cancel queued work,
+            # then let the context manager join the already running workers.
+            for future in future_indexes:
+                future.cancel()
+            raise
     return cast(list[ResultT], ordered)
 
 
@@ -297,11 +316,10 @@ def _execute_account(
 ) -> AccountResult[T]:
     started_at = perf_counter()
     logger.debug("Authenticating account %s", account.id)
-    profile_name, role_name = bound.identity(account)
-
     try:
         session = bound.session_for(account)
     except Exception as error:
+        profile_name, role_name = bound.identity(account)
         return _account_failure(
             account,
             error,
@@ -312,6 +330,7 @@ def _execute_account(
             role_name=role_name,
         )
 
+    profile_name, role_name = bound.identity(account)
     logger.debug("Starting worker for account %s", account.id)
     try:
         value = function(session, account)
@@ -351,11 +370,10 @@ def _execute_account_region(
         target.account.id,
         target.region,
     )
-    profile_name, role_name = bound.identity(target.account)
-
     try:
         session = bound.session_for(target.account, region=target.region)
     except Exception as error:
+        profile_name, role_name = bound.identity(target.account)
         return _account_region_failure(
             target,
             error,
@@ -366,6 +384,7 @@ def _execute_account_region(
             role_name=role_name,
         )
 
+    profile_name, role_name = bound.identity(target.account)
     logger.debug(
         "Starting worker for account %s in %s",
         target.account.id,
@@ -412,7 +431,6 @@ def _discover_account(
 ) -> _Discovery:
     started_at = perf_counter()
     session: Session | None = None
-    profile_name, role_name = bound.identity(account)
     try:
         session = bound.session_for(account)
         enabled = list_enabled_regions(
@@ -420,6 +438,7 @@ def _discover_account(
             botocore_config=botocore_config,
         )
     except Exception as error:
+        profile_name, role_name = bound.identity(account)
         fallback = _discovery_failure_region(
             bound,
             session,
@@ -485,7 +504,7 @@ def _account_failure(
     role_name: str | None,
 ) -> AccountResult[T]:
     duration = perf_counter() - started_at
-    logger.debug(message, account.id, duration, exc_info=True)
+    logger.debug(message, account.id, duration)
     _clear_exception_tracebacks(error)
     return AccountResult(
         account=account,
@@ -514,7 +533,6 @@ def _account_region_failure(
         target.account.id,
         target.region,
         duration,
-        exc_info=True,
     )
     _clear_exception_tracebacks(error)
     return AccountRegionResult(
@@ -545,3 +563,10 @@ def _clear_exception_tracebacks(error: BaseException) -> None:
             pending.append(current.__cause__)
         if current.__context__ is not None:
             pending.append(current.__context__)
+        # ExceptionGroup exists on Python 3.11+, while the library also
+        # supports 3.10. Nested errors can retain callback locals too.
+        children = getattr(current, "exceptions", ())
+        if isinstance(children, tuple):
+            pending.extend(
+                child for child in children if isinstance(child, BaseException)
+            )

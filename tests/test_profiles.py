@@ -18,6 +18,25 @@ class FakeBotocoreSession:
         return self.config
 
 
+def test_zero_limit_does_not_read_config_or_resolve_organization_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_session() -> None:
+        pytest.fail("zero limit must not read AWS config")
+
+    monkeypatch.setattr("runacross.profiles.BotocoreSession", unexpected_session)
+    assert (
+        list_accounts(
+            pattern="AWS-{account_id}",
+            sso_session="control-tower",
+            organization_id="o-exampleorgid",
+            organization_profile="management",
+            limit=0,
+        )
+        == []
+    )
+
+
 def shared_config(
     profiles: dict[str, dict[str, str]],
     *,

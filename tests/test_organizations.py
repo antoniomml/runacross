@@ -21,6 +21,17 @@ class FakePaginator:
         return iter(self.pages)
 
 
+@pytest.mark.parametrize("parent_id", [None, "ou-abcd-12345678"])
+def test_zero_limit_does_not_resolve_credentials_or_call_aws(
+    monkeypatch: pytest.MonkeyPatch, parent_id: str | None
+) -> None:
+    def unexpected_session() -> None:
+        pytest.fail("zero limit must not create an AWS session")
+
+    monkeypatch.setattr("runacross.organizations.boto3.Session", unexpected_session)
+    assert list_accounts(limit=0, parent_id=parent_id) == []
+
+
 class FakeParentPaginator:
     def __init__(self, pages_by_parent: dict[str, list[dict[str, Any]]]) -> None:
         self.pages_by_parent = pages_by_parent

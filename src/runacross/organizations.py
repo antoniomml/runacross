@@ -59,6 +59,8 @@ def list_accounts(
         raise TypeError("include_nested must be a bool")
     excluded_ids = {account.id for account in coerce_accounts(exclude_accounts)}
     max_accounts = coerce_limit(limit)
+    if max_accounts == 0:
+        return []
 
     source_session = session if session is not None else boto3.Session()
     client = cast(
