@@ -7,6 +7,33 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-06
+
+### Fixed
+
+- Resolve Profile names once per authentication attempt, keep result metadata
+  consistent with the selected profile, and isolate resolver errors per target.
+- Return no accounts or perform discovery when `limit=0` on either account source.
+- Clear tracebacks from nested exception groups as well as chained exceptions.
+- Stop submitting targets and cancel queued work when an observer or a
+  `BaseException` interrupts execution. Running callbacks are still joined.
+
+### Changed
+
+- Bound pending execution futures to `max_workers`, reducing scheduler memory
+  for large runs while preserving ordered results and per-target Sessions.
+- DEBUG logs omit exception text and tracebacks. Inspect `result.error` for
+  diagnostics; callback values and error messages in exports are not sanitized.
+- Releases now run the complete CI workflow before building and publishing.
+  Release tag names are passed as environment data, not interpolated into code.
+
+### Added
+
+- Regression coverage, isolated AWS test configuration and blocked SDK HTTP
+  transport, Windows CI, and minimum-supported-Boto3 compatibility checks.
+- A lightweight `test` extra, an offline scheduler benchmark, an operations
+  guide, and an audit report with a prioritized maintenance roadmap.
+
 ## [0.6.0] - 2026-08-26
 
 ### Added
@@ -128,7 +155,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - Constructing subscripted `AccountResult[T](...)` on Python 3.10.
 
-[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/antoniomml/runacross/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/antoniomml/runacross/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/antoniomml/runacross/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/antoniomml/runacross/compare/v0.3.1...v0.4.0

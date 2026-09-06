@@ -442,9 +442,8 @@ def test_on_result_follows_completion_order_and_keeps_input_order() -> None:
     seen: list[tuple[str, int, int]] = []
 
     def worker(_session: Session, account: Account) -> str:
-        if account.id == "111111111111":
-            if not second_completed.wait(timeout=5):
-                raise RuntimeError("second account did not complete")
+        if account.id == "111111111111" and not second_completed.wait(timeout=5):
+            raise RuntimeError("second account did not complete")
         return account.id
 
     def on_result(result: Any, *, completed: int, total: int) -> None:
