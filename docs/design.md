@@ -102,8 +102,10 @@ Failed results expose `error_code` when the stored exception is a Botocore
 
 `RunResults[T]` is an immutable `Sequence` preserving input order. It exposes
 `successful`, `failed`, `success_count`, `failure_count`, `to_dicts()`,
-`failures_by_phase()`, and `summary()`. `to_dicts()` omits Organizations
-email addresses and never includes credentials.
+`failures_by_phase()`, and `summary()`. `to_dicts()` omits the built-in
+Organizations email field and does not add authentication credentials.
+Callback values and error messages pass through unchanged and may contain
+sensitive data; callers are responsible for sanitizing exported records.
 
 `map_account_regions` uses a three-argument callback and `RegionResults[T]`.
 Each item is an `AccountRegionResult` whose identity is `AccountRegion`.
