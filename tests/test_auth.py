@@ -5,7 +5,14 @@ from typing import Any, cast
 import pytest
 from boto3.session import Session
 
-from runacross import Account, ExecutionPhase, Profile, Role, map_accounts
+from runacross import (
+    Account,
+    ExecutionPhase,
+    Profile,
+    Role,
+    map_account_regions,
+    map_accounts,
+)
 from runacross.auth import resolve_auth
 
 
@@ -463,3 +470,65 @@ def test_verify_account_id_rejects_a_non_mapping_identity_response(
 
     assert results[0].success is False
     assert results[0].phase is ExecutionPhase.AUTH
+
+
+@pytest.mark.parametrize("regional", [False, True])
+def test_profile_resolver_runs_once_per_target_and_reports_actual_profile(
+    monkeypatch: pytest.MonkeyPatch, regional: bool
+) -> None:
+    monkeypatch.setattr("runacross.auth.boto3.Session", RecordingSession)
+    calls: list[str] = []
+
+    def resolve(account: Account) -> str:
+        calls.append(account.id)
+        return f"profile-{len(calls)}"
+
+    auth = Profile(resolver=resolve)
+    if regional:
+        results = map_account_regions(
+            lambda session, _account, _region: session.profile_name,
+            accounts=["111111111111"],
+            regions=["eu-west-1", "us-east-1"],
+            auth=auth,
+            max_workers=1,
+        )
+    else:
+        results = map_accounts(
+            lambda session, _account: session.profile_name,
+            accounts=["111111111111", "222222222222"],
+            auth=auth,
+            max_workers=1,
+        )
+    assert len(calls) == 2
+    assert [r.value for r in results] == ["profile-1", "profile-2"]
+    assert [r.profile_name for r in results] == [r.value for r in results]
+
+
+@pytest.mark.parametrize("regional", [False, True])
+def test_resolver_failure_is_isolated_and_does_not_reuse_previous_identity(
+    monkeypatch: pytest.MonkeyPatch, regional: bool
+) -> None:
+    monkeypatch.setattr("runacross.auth.boto3.Session", RecordingSession)
+
+    def resolve(account: Account) -> str:
+        if account.id == "222222222222":
+            raise RuntimeError("resolver failed")
+        return "audit"
+
+    kwargs = {
+        "accounts": ["111111111111", "222222222222", "333333333333"],
+        "auth": Profile(resolver=resolve),
+        "max_workers": 1,
+    }
+    if regional:
+        results = map_account_regions(
+            lambda _session, account, _region: account.id,
+            regions=["eu-west-1"],
+            **kwargs,
+        )
+    else:
+        results = map_accounts(lambda _session, account: account.id, **kwargs)
+    assert results.success_count == 2
+    assert results[1].phase is ExecutionPhase.AUTH
+    assert isinstance(results[1].error, RuntimeError)
+    assert [r.profile_name for r in results] == ["audit", None, "audit"]

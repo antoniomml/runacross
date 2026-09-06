@@ -102,8 +102,10 @@ Failed results expose `error_code` when the stored exception is a Botocore
 
 `RunResults[T]` is an immutable `Sequence` preserving input order. It exposes
 `successful`, `failed`, `success_count`, `failure_count`, `to_dicts()`,
-`failures_by_phase()`, and `summary()`. `to_dicts()` omits Organizations
-email addresses and never includes credentials.
+`failures_by_phase()`, and `summary()`. `to_dicts()` omits the built-in
+Organizations email field and does not add authentication credentials.
+Callback values and error messages pass through unchanged and may contain
+sensitive data; callers are responsible for sanitizing exported records.
 
 `map_account_regions` uses a three-argument callback and `RegionResults[T]`.
 Each item is an `AccountRegionResult` whose identity is `AccountRegion`.
@@ -146,13 +148,15 @@ For non-empty input:
    client here and rejects a source Session with no Region).
 4. For Region discovery, authenticate per account and call Account Management
    `ListRegions` before submitting worker tasks.
-5. Submit one task per remaining target to `ThreadPoolExecutor`.
+5. Submit at most `max_workers` tasks to `ThreadPoolExecutor`, replenishing
+   the window as results are consumed. Pending futures use O(max_workers)
+   memory; validated targets and returned results still use O(targets).
 6. Each task obtains a Session from the bound auth. `Role` assumes once per
    account and copies credentials into a per-task Session for the target
    Region.
 7. The task calls `function(session, account)` or
    `function(session, account, region)` in the same worker thread.
-8. The calling thread consumes futures with `as_completed`. Optional
+8. The calling thread consumes futures through a completion queue. Optional
    `on_result` runs on that thread after each completion, with
    `completed` and `total`. Results are still stored in input order.
 
@@ -171,8 +175,10 @@ unique to its task. The source Session on `Role` is used only to create the
 STS client before concurrency begins. Low-level clients are generally
 thread-safe; custom Botocore event hooks can invalidate that assumption.
 
-RunAcross does not expose the executor or implement a scheduler. It waits for
-all submitted work before returning.
+RunAcross does not expose the executor. It waits for running work before
+returning. An observer error or `BaseException` stops new submissions and
+cancels futures that have not started; running callbacks are joined before
+the exception propagates. Python threads cannot forcibly stop an AWS call.
 
 ## Error isolation
 
@@ -183,8 +189,10 @@ not converted into account failures.
 
 The original exception type and message remain inspectable. RunAcross clears
 retained traceback frames before returning failures so results do not keep
-Sessions and temporary credentials alive through frame locals. Full tracebacks
-are available through DEBUG logging at the point of failure. `error_code`
+Sessions and temporary credentials alive through frame locals. This includes
+chained errors and Python 3.11+ exception groups. DEBUG logs omit exception
+messages and tracebacks; applications explicitly inspect the result's error.
+Custom exception attributes are not sanitized. `error_code`
 reads `response["Error"]["Code"]` from Botocore client errors and does not
 parse exception text.
 

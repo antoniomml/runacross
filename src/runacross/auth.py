@@ -261,18 +261,21 @@ class BoundProfile:
     def __init__(self, profile: Profile, *, botocore_config: Config | None) -> None:
         self._profile = profile
         self._botocore_config = botocore_config
+        self._local = threading.local()
 
     def reporting_region(self) -> str | None:
         return None
 
     def identity(self, account: Account) -> tuple[str | None, str | None]:
-        try:
-            return self._profile.profile_name(account), None
-        except (KeyError, TypeError, ValueError):
-            return None, None
+        del account
+        return getattr(self._local, "profile_name", None), None
 
     def session_for(self, account: Account, *, region: str | None = None) -> Session:
+        # Metadata belongs to this attempt, including failed resolution. Never
+        # run user code a second time just to label a result.
+        self._local.profile_name = None
         profile_name = self._profile.profile_name(account)
+        self._local.profile_name = profile_name
         session = cast(
             Session,
             boto3.Session(profile_name=profile_name, region_name=region),

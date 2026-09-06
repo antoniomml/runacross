@@ -33,6 +33,8 @@ functions are also public:
 - `runacross.regions.list_enabled_regions`
 
 `list_accounts` helpers accept `limit=` to return the first matching accounts.
+`limit=0` returns `[]` after argument validation without reading config,
+resolving credentials, or checking the organization guard. `None` is unlimited.
 `organizations.list_accounts` also accepts `parent_id` for a root or OU, with
 nested units included by default. `map_accounts` and `map_account_regions`
 accept `on_result`. `show_progress()` returns a TTY-aware stderr reporter for
@@ -55,7 +57,10 @@ credentials.
 
 These helpers convert data. They do not print, write files, or choose a
 report format. Serialized records include account IDs and optional names.
-They omit Organizations email addresses and never include credentials.
+They omit the built-in Organizations email field and do not add authentication
+credentials. Callback values and exception messages pass through unchanged and
+may themselves contain sensitive data. Values must be JSON-compatible if the
+caller plans to pass records to `json.dumps()`.
 
 ## Internal
 

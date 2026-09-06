@@ -15,6 +15,24 @@ from runacross import (
 from runacross.models import AccountRegion
 
 
+@pytest.mark.parametrize("regions", [[], ["eu-west-1"]])
+def test_empty_region_selection_does_not_bind_authentication(
+    regions: list[str],
+) -> None:
+    class UnusedAuth:
+        def bind(self, **_kwargs: Any) -> None:
+            pytest.fail("empty target selection must not resolve credentials")
+
+    results = map_account_regions(
+        lambda _session, _account, _region: None,
+        accounts=["111111111111"],
+        regions=regions,
+        exclude_regions=["eu-west-1"],
+        auth=UnusedAuth(),
+    )
+    assert len(results) == 0
+
+
 class FakeMeta:
     partition = "aws"
 

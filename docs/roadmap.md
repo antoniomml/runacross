@@ -73,31 +73,42 @@ Extra capability should appear beside that shape, not inside `map_accounts`.
 
 ## Next
 
-Optional APIs beside the default path. Suggested order:
+Stability takes priority over more selectors or execution modes. The
+[September 2026 audit](audit-2026-09.md) records the evidence and tradeoffs.
 
-1. Reusable account selection beside the executor for Organizations account
-   tags, name, or regular expression. Do not add those parameters to
-   `map_accounts`.
-2. Timeouts and deadlines only with honest semantics: Python threads cannot
-   cancel an in-flight AWS call. Prefer marking unfinished work as failed
-   over pretending the worker stopped.
+1. Expand SDK integration tests around credential providers and paginated
+   responses, supplementing small fakes with Botocore Stubber.
+2. Measure representative paginated workloads before changing worker defaults
+   or introducing streaming results; keep the offline benchmark reproducible.
+3. Improve callback and progress typing and async-callback diagnostics while
+   preserving the small synchronous API.
+4. Gather downstream compatibility evidence before promising a stable 1.0.
+
+## 0.6.1 maintenance
+
+- Correct profile resolver identity and error isolation, and zero discovery limits.
+- Bound pending futures and cancel queued work when execution is interrupted.
+- Remove automatic exception logging and clear grouped exception tracebacks.
+- Gate releases on CI and test Windows and the minimum supported Boto3.
+- Isolate unit tests from local AWS credentials and live SDK requests.
+- Publish an operations guide, benchmark, and prioritized audit report.
 
 Still deferred: callback retries, lifecycle hook triplets, `map_profiles()`,
 and any built-in CLI.
 
 ## Later
 
-Stability work that should land before much larger abstractions:
-
-- Integration tests against simulated Identity Center profiles.
-- Continued Python 3.10-3.14 compatibility in CI.
-- Changelog migration examples when public names change.
-- Stronger typing around generic callbacks.
-
 Candidates that still need evidence from real usage:
 
 - A configurable role ARN resolver.
 - Additional STS session parameters.
+- Reusable Organizations selectors for account tags, names, or patterns,
+  beside the executor rather than new executor parameters.
+- Credential refresh or streaming results for runs that demonstrably need them.
+
+Hard thread timeouts remain out of scope: marking a callback failed does not
+stop it or undo its AWS side effects. Any future deadline API must account
+for that explicitly.
 
 RunAcross does not plan to become a CLI, scanner, policy engine, distributed
 workflow system, credential store, or infrastructure deployment framework.

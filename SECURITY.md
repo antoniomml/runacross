@@ -24,16 +24,22 @@ RunAcross is designed to:
 - avoid returning or deliberately logging STS credentials;
 - create no credential files, credential caches, analytics, or telemetry;
 - create only AWS service clients in the library itself;
-- perform no AWS operation beyond role assumption and explicitly requested
-  Organizations discovery unless the user's callback performs it.
+- perform only authentication (including optional profile account verification)
+  and explicitly requested Organizations or enabled-Region discovery, unless
+  the user's callback performs additional operations.
 
 The standard Boto3 provider chain may read local AWS configuration, use IAM
 Identity Center caches, or execute a configured `credential_process`.
 `Profile` authenticates only through those named profiles; RunAcross does not
 implement a separate login or profile-discovery mechanism.
-Callbacks are arbitrary user code and may access other services. Callback
-exception messages are included in DEBUG logs, so applications must not place
-credentials or secrets in exception text.
+Callbacks are arbitrary user code and may access other services. RunAcross's
+own DEBUG logs omit exception messages and tracebacks. Boto3, Botocore, and
+application logging have independent configuration and may expose sensitive data.
+Result objects retain original exceptions and callback values, which may contain
+secrets in messages or custom attributes. `to_dict()` and `to_dicts()` include
+the callback value and error message without redaction; they are not sanitizers.
+Tracebacks, including chained and grouped errors, are cleared before returning
+failures, but arbitrary exception attributes remain the caller's responsibility.
 
 `list_accounts()` copies account names and root email addresses returned by
 AWS Organizations into `Account` objects. Treat those fields as sensitive:
@@ -46,3 +52,7 @@ Applications remain responsible for least-privilege source and target IAM
 policies, target-role trust policies, dependency updates, logging
 configuration, and safe handling of callback results and exceptions.
 
+## Supported versions
+
+Security fixes target the latest published release. Older alpha versions do
+not have a separate maintenance branch; upgrade to the latest patch release.

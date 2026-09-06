@@ -42,6 +42,8 @@ def list_accounts(
     _validate_organization_options(organization_id, organization_profile)
     excluded_ids = {account.id for account in coerce_accounts(exclude_accounts)}
     max_accounts = coerce_limit(limit)
+    if max_accounts == 0:
+        return []
 
     full_config = cast(dict[str, Any], BotocoreSession().full_config)
     profiles = _config_section(full_config, "profiles")

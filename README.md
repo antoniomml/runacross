@@ -10,6 +10,9 @@ isolates errors, and aggregates results so your code can focus on the AWS
 operation itself. Authentication is pluggable: assume an IAM role in every
 account, or use named AWS CLI / IAM Identity Center profiles.
 
+[Quickstart](#quickstart) · [API](docs/api.md) · [Examples](examples/README.md) ·
+[Operational guide](docs/operations.md) · [Contributing](CONTRIBUTING.md)
+
 ## Why RunAcross?
 
 Multi-account scripts repeatedly need the same plumbing:
@@ -342,7 +345,9 @@ regions = list_enabled_regions()
 Both executors accept `exclude_accounts`. `map_account_regions` also accepts
 `exclude_regions`. Filters preserve input order and do not silently deduplicate.
 Both discovery helpers accept `limit=` to keep the first matching accounts
-instead of slicing the list by hand.
+instead of slicing the list by hand. `limit=0` returns an empty list without
+reading AWS configuration, resolving credentials, or making AWS calls (including
+the optional organization guard). `None` means no limit.
 
 ```python
 results = map_account_regions(
@@ -479,7 +484,9 @@ def on_result(result, *, completed, total):
 results = map_accounts(..., on_result=on_result)
 ```
 
-An exception from `on_result` stops the run. With `discover_regions=True`,
+An exception from `on_result` stops new submissions, cancels work that has not
+started, waits for running callbacks, and then propagates to the caller.
+It cannot undo AWS operations that have already started. With `discover_regions=True`,
 discovery authentication failures are reported first, then worker completions.
 
 ## Source credentials
@@ -536,8 +543,10 @@ usual Lambda strategy; local AWS CLI profiles are not available there.
 
 RunAcross does not persist or return STS credentials, add telemetry, or create
 non-AWS service clients. Library logging is silent unless the application
-configures it. RunAcross never deliberately adds credentials to logs, but
-callback exception messages are emitted at DEBUG and must not contain secrets.
+configures it. RunAcross logs target IDs, Regions, phases, and durations, but
+does not log exception messages or tracebacks. Results retain the original
+errors and callback values; treat those as application data that may contain
+secrets, including when exporting with `to_dicts()`.
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
@@ -565,9 +574,10 @@ See [docs/api.md](docs/api.md).
 
 ## Roadmap
 
-The next likely additions are optional: richer Organizations selectors
-and timeouts with honest thread semantics. The default path stays two
-calls and a callback. See [docs/roadmap.md](docs/roadmap.md).
+The current priority is reliability, compatibility, and measurable execution
+overhead. Larger selectors and timeout APIs need evidence from real usage.
+The default path stays two calls and a callback. See [docs/roadmap.md](docs/roadmap.md)
+and the [September 2026 audit](docs/audit-2026-09.md).
 
 ## Contributing
 

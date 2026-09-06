@@ -269,7 +269,11 @@ class AccountResult(Generic[T_co]):
         return _aws_error_code(self.error)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-friendly record without credentials or email."""
+        """Return a record, passing through callback values and error messages.
+
+        Authentication credentials and account email are not added. User
+        values may contain sensitive or non-JSON-serializable data.
+        """
 
         return _outcome_dict(
             account=self.account,
@@ -336,7 +340,11 @@ class AccountRegionResult(Generic[T_co]):
         return _aws_error_code(self.error)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-friendly record without credentials or email."""
+        """Return a record, passing through callback values and error messages.
+
+        Authentication credentials and account email are not added. User
+        values may contain sensitive or non-JSON-serializable data.
+        """
 
         return _outcome_dict(
             account=self.account,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import builtins
+import logging
 import threading
 from typing import Any, cast
 
@@ -8,6 +10,47 @@ from boto3.session import Session
 from botocore.config import Config
 
 from runacross import Account, ExecutionPhase, Profile, Role, map_accounts
+
+
+def test_debug_logs_do_not_include_exception_secrets(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source, _ = source_session()
+
+    def worker(_session: Session, _account: Account) -> None:
+        raise RuntimeError("sentinel-secret-do-not-log")
+
+    with caplog.at_level(logging.DEBUG, logger="runacross"):
+        results = map_accounts(
+            worker, accounts=["111111111111"], role_name="audit", source_session=source
+        )
+    assert "Worker failed" in caplog.text
+    assert "sentinel-secret-do-not-log" not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+    assert str(results[0].error) == "sentinel-secret-do-not-log"
+
+
+@pytest.mark.skipif(
+    not hasattr(builtins, "ExceptionGroup"), reason="requires Python 3.11"
+)
+def test_nested_exception_group_tracebacks_are_cleared() -> None:
+    source, _ = source_session()
+    group_type = getattr(builtins, "ExceptionGroup", None)
+
+    def worker(_session: Session, _account: Account) -> None:
+        try:
+            raise ValueError("inner")
+        except ValueError as error:
+            raise group_type("outer", [group_type("nested", [error])]) from None
+
+    results = map_accounts(
+        worker, accounts=["111111111111"], role_name="audit", source_session=source
+    )
+    outer = results[0].error
+    assert isinstance(outer, group_type)
+    inner = outer.exceptions[0].exceptions[0]
+    assert isinstance(inner, ValueError)
+    assert inner.__traceback__ is None
 
 
 class FakeMeta:
@@ -399,15 +442,14 @@ def test_on_result_follows_completion_order_and_keeps_input_order() -> None:
     seen: list[tuple[str, int, int]] = []
 
     def worker(_session: Session, account: Account) -> str:
-        if account.id == "111111111111":
-            if not second_completed.wait(timeout=5):
-                raise RuntimeError("second account did not complete")
-        else:
-            second_completed.set()
+        if account.id == "111111111111" and not second_completed.wait(timeout=5):
+            raise RuntimeError("second account did not complete")
         return account.id
 
     def on_result(result: Any, *, completed: int, total: int) -> None:
         seen.append((result.account.id, completed, total))
+        if result.account.id == "222222222222":
+            second_completed.set()
 
     results = map_accounts(
         worker,
