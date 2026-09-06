@@ -123,6 +123,12 @@ def test_list_enabled_regions_rejects_non_string_region_name() -> None:
         list_enabled_regions(session=session)
 
 
+def test_list_enabled_regions_rejects_malformed_region_name() -> None:
+    session, _, _ = make_session([{"Regions": [{"RegionName": "invalid"}]}])
+    with pytest.raises(ConfigError, match="invalid RegionName"):
+        list_enabled_regions(session=session)
+
+
 def test_list_enabled_regions_configures_account_client() -> None:
     session, _, source = make_session([{"Regions": []}])
 

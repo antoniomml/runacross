@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Callable
 from typing import Any, TextIO
 
+from .callbacks import ResultCallback
 from .models import AccountRegionResult, AccountResult, ExecutionPhase
 
 
@@ -11,7 +11,7 @@ def show_progress(
     *,
     file: TextIO | None = None,
     disable: bool | None = None,
-) -> Callable[..., None]:
+) -> ResultCallback[object]:
     """Return an ``on_result`` callback that rewrites one status line.
 
     The line is written to stderr when that stream is a TTY. Piped output,
@@ -20,6 +20,8 @@ def show_progress(
     own ``on_result`` instead.
     """
 
+    if disable is not None and not isinstance(disable, bool):
+        raise TypeError("disable must be a bool or None")
     stream = sys.stderr if file is None else file
     hidden = (not stream.isatty()) if disable is None else disable
     ok = 0

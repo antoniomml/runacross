@@ -10,6 +10,7 @@ import boto3
 from boto3.session import Session
 from botocore.config import Config
 
+from .callbacks import _validate_callback, _validate_callback_value
 from .models import Account
 from .sts import (
     StsClient,
@@ -192,8 +193,7 @@ class Profile:
                 )
             return
         if self.resolver is not None:
-            if not callable(self.resolver):
-                raise TypeError("resolver must be callable")
+            _validate_callback(self.resolver, label="resolver", positional=1)
             return
         if not isinstance(self.mapping, Mapping):
             raise TypeError("mapping must be a mapping of account IDs to profile names")
@@ -250,6 +250,7 @@ class Profile:
         else:
             assert self.resolver is not None
             name = self.resolver(account)
+            _validate_callback_value(name, label="resolver")
         if not isinstance(name, str) or not name:
             raise ValueError("resolved profile name must be a non-empty string")
         return name

@@ -71,6 +71,12 @@ def list_enabled_regions(
                 )
             names.append(region_name)
 
-    enabled = drop_regions(coerce_regions(names), excluded)
+    try:
+        validated_names = coerce_regions(names)
+    except ValueError as error:
+        raise ConfigError(
+            "AWS Account Management returned an invalid RegionName"
+        ) from error
+    enabled = drop_regions(validated_names, excluded)
     logger.debug("Discovered %d enabled Regions", len(enabled))
     return list(enabled)

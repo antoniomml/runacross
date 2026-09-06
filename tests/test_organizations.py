@@ -484,3 +484,12 @@ def test_list_accounts_rejects_non_string_organization_response_id() -> None:
 
     with pytest.raises(ConfigError, match=r"non-string Organization\.Id"):
         list_accounts(organization_id="o-exampleorgid", session=session)
+
+
+@pytest.mark.parametrize("field,value", [("Id", "invalid"), ("Name", 1), ("Email", 1)])
+def test_malformed_account_fields_raise_config_error(field: str, value: Any) -> None:
+    item: dict[str, Any] = {"Id": "111111111111", "State": "ACTIVE"}
+    item[field] = value
+    session, _, _ = make_session([{"Accounts": [item]}])
+    with pytest.raises(ConfigError, match="invalid account fields"):
+        list_accounts(session=session)

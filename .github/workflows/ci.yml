@@ -30,7 +30,7 @@ jobs:
       - run: python -m pip install -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
-      - run: mypy src/
+      - run: mypy src/ tests/typing/
       - run: python -m pip_audit
       - run: python -m build
       - run: python -m twine check dist/*
@@ -78,9 +78,11 @@ jobs:
           - os: windows-latest
             python: "3.14"
             boto3: "boto3"
+            botocore: "botocore"
           - os: ubuntu-latest
             python: "3.10"
             boto3: "boto3==1.40.40"
+            botocore: "botocore==1.40.40"
     env:
       AWS_EC2_METADATA_DISABLED: "true"
       AWS_ACCESS_KEY_ID: testing
@@ -94,5 +96,5 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-      - run: python -m pip install -e ".[test]" "${{ matrix.boto3 }}"
+      - run: python -m pip install -e ".[test]" "${{ matrix.boto3 }}" "${{ matrix.botocore }}"
       - run: python -m pytest
