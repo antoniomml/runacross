@@ -7,6 +7,17 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0rc1] - 2026-09-06
+
+### Changed
+
+- Designate the validated 0.7.0 runtime as the first 1.0 release candidate.
+  There are no runtime, signature, dependency or result-schema changes from
+  0.7.0. This candidate is opt-in and does not replace the normal 0.7.0 install.
+- Freeze the proposed public contract for downstream validation. Stable 1.0
+  still requires reviewed consumer-script evidence for Role and Profile flows;
+  the candidate does not claim production validation.
+
 ## [0.7.0] - 2026-09-06
 
 ### Added
@@ -193,7 +204,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - Constructing subscripted `AccountResult[T](...)` on Python 3.10.
 
-[Unreleased]: https://github.com/antoniomml/runacross/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/antoniomml/runacross/compare/v1.0.0rc1...HEAD
+[1.0.0rc1]: https://github.com/antoniomml/runacross/compare/v0.7.0...v1.0.0rc1
 [0.7.0]: https://github.com/antoniomml/runacross/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/antoniomml/runacross/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/antoniomml/runacross/compare/v0.5.0...v0.6.0

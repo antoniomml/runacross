@@ -54,5 +54,6 @@ configuration, and safe handling of callback results and exceptions.
 
 ## Supported versions
 
-Security fixes target the latest published release. Older alpha versions do
-not have a separate maintenance branch; upgrade to the latest patch release.
+Security fixes target the latest non-prerelease version and the active 1.0
+release candidate. Older versions do not have separate maintenance branches;
+upgrade to the latest patch release or current candidate as appropriate.

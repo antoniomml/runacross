@@ -66,6 +66,12 @@ the merged commit. Check the Publish workflow and install the new PyPI version
 in a clean environment before considering the release complete. Do not move
 an existing release tag or overwrite a published version.
 
+For a candidate, use Python's prerelease spelling (for example `1.0.0rc1`)
+in the package version and the matching `v1.0.0rc1` tag. Mark the GitHub release
+as a prerelease. Publishing that release still runs CI and uploads to PyPI;
+normal installations should continue to select the latest non-prerelease.
+Verify both an exact candidate install and normal version selection.
+
 Before submitting a change:
 
 - add tests for behavior changes;
