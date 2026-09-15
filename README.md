@@ -10,9 +10,9 @@ isolates errors, and aggregates results so your code can focus on the AWS
 operation itself. Authentication is pluggable: assume an IAM role in every
 account, or use named AWS CLI / IAM Identity Center profiles.
 
-**1.0.0rc1** is an opt-in release candidate with the same
-runtime code as 0.7.0. Normal installation selects 0.7.0; install the candidate
-explicitly with `python -m pip install runacross==1.0.0rc1`.
+**1.0.0rc2** is an opt-in release candidate that applies the audit hardening
+on top of 0.7.0. Normal installation selects 0.7.0; install the candidate
+explicitly with `python -m pip install runacross==1.0.0rc2`.
 The [public contract](docs/api.md) and [readiness record](docs/readiness-1.0.md)
 describe the proposed compatibility commitments and remaining validation.
 
@@ -150,7 +150,8 @@ Profile(resolver=lambda account: f"sso-{account.id}")
 ```
 
 Exactly one of `pattern`, `mapping`, or `resolver` is required. Pattern
-placeholders are `{account_id}` and, if present on the `Account`, `{name}`.
+placeholders are `{account_id}` and, if present on the `Account`, `{name}`;
+format specifications and conversions such as `{account_id!r}` are rejected.
 
 Pass `verify_account_id=True` to call `sts:GetCallerIdentity` after the
 profile credentials resolve and fail authentication when the returned

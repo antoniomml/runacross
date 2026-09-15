@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from concurrent.futures import Future
 from functools import partial, wraps
 from typing import Any
 
@@ -148,6 +149,46 @@ def test_async_values_are_not_reported_as_success(factory: Any) -> None:
 class CustomAwaitable:
     def __await__(self) -> Any:
         pytest.fail("RunAcross must never drive a caller's awaitable")
+
+
+def test_callback_returning_a_concurrent_future_is_a_worker_failure() -> None:
+    result = map_accounts(
+        lambda *_args: Future(),
+        accounts=["111111111111"],
+        auth=OfflineAuth(),
+    )[0]
+
+    assert result.phase is ExecutionPhase.WORKER
+    assert isinstance(result.error, TypeError)
+    assert "concurrent Future" in str(result.error)
+
+
+def test_observer_returning_a_concurrent_future_propagates() -> None:
+    def observer(*_args: Any, **_kwargs: Any) -> Any:
+        return Future()
+
+    with pytest.raises(TypeError, match="on_result returned a concurrent Future"):
+        map_accounts(
+            lambda *_args: None,
+            accounts=["111111111111"],
+            auth=OfflineAuth(),
+            on_result=observer,
+        )
+
+
+def test_resolver_returning_a_concurrent_future_is_an_auth_failure() -> None:
+    def resolver(_account: Any) -> Any:
+        return Future()
+
+    result = map_accounts(
+        lambda *_args: None,
+        accounts=["111111111111"],
+        auth=Profile(resolver=resolver),
+    )[0]
+
+    assert result.phase is ExecutionPhase.AUTH
+    assert isinstance(result.error, TypeError)
+    assert "concurrent Future" in str(result.error)
 
 
 def test_wrapped_async_resolver_is_an_auth_failure() -> None:

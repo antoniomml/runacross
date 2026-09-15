@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
+from concurrent.futures import Future
 from functools import partial
 from typing import Protocol, TypeVar
 
@@ -56,6 +57,13 @@ def _validate_callback(
 
 
 def _validate_callback_value(value: object, *, label: str) -> None:
+    if isinstance(value, Future):
+        # A concurrent Future is asynchronous work that RunAcross cannot await
+        # or observe; accepting it would report success before the work ran.
+        raise TypeError(
+            f"{label} returned a concurrent Future; callbacks must finish "
+            "before returning"
+        )
     if inspect.isawaitable(value) or inspect.isasyncgen(value):
         # Close a native coroutine we will never await, avoiding a leaked
         # coroutine warning. Do not run event loops or cancel caller-owned tasks.

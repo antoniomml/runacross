@@ -161,6 +161,8 @@ def test_validate_assume_role_options_rejects_invalid_session_names(
         "Role!",
         "Role:Admin",
         "x" * 65,
+        "arn:aws:iam::123456789012:role/Admin",
+        "team:path/Role",
     ],
 )
 def test_validate_assume_role_options_rejects_invalid_role_names(
@@ -258,6 +260,40 @@ def test_validate_assume_role_options_rejects_duration_out_of_range(
             role_session_name="runacross",
             external_id=None,
             duration_seconds=duration_seconds,
+        )
+
+
+def test_validate_assume_role_options_rejects_non_string_options() -> None:
+    with pytest.raises(TypeError, match="role_name"):
+        validate_assume_role_options(
+            role_name=1,  # type: ignore[arg-type]
+            role_session_name="runacross",
+            external_id=None,
+            duration_seconds=None,
+        )
+    with pytest.raises(TypeError, match="role_session_name"):
+        validate_assume_role_options(
+            role_name="SecurityAuditRole",
+            role_session_name=1,  # type: ignore[arg-type]
+            external_id=None,
+            duration_seconds=None,
+        )
+    with pytest.raises(TypeError, match="external_id"):
+        validate_assume_role_options(
+            role_name="SecurityAuditRole",
+            role_session_name="runacross",
+            external_id=1,  # type: ignore[arg-type]
+            duration_seconds=None,
+        )
+
+
+def test_validate_assume_role_options_rejects_full_arns() -> None:
+    with pytest.raises(ValueError, match="not an ARN"):
+        validate_assume_role_options(
+            role_name="arn:aws:iam::123456789012:role/Admin",
+            role_session_name="runacross",
+            external_id=None,
+            duration_seconds=None,
         )
 
 

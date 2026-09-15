@@ -452,6 +452,25 @@ def test_list_accounts_rejects_account_without_id() -> None:
         list_accounts(session=session)
 
 
+def test_list_accounts_rejects_non_mapping_account_entries() -> None:
+    session, _, _ = make_session([{"Accounts": ["not-an-account"]}])
+
+    with pytest.raises(ConfigError, match="non-mapping account"):
+        list_accounts(session=session)
+
+
+def test_list_accounts_rejects_non_mapping_organizational_units() -> None:
+    session, _, _ = make_session(
+        accounts_for_parent={WORKLOADS_OU: parent_pages()},
+        organizational_units_for_parent={
+            WORKLOADS_OU: [{"OrganizationalUnits": ["not-an-ou"]}],
+        },
+    )
+
+    with pytest.raises(ConfigError, match="non-mapping organizational unit"):
+        list_accounts(session=session, parent_id=WORKLOADS_OU)
+
+
 def test_list_accounts_rejects_non_string_parent_id() -> None:
     session, _, source = make_session([])
 

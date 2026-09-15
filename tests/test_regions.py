@@ -107,6 +107,24 @@ def test_list_enabled_regions_excludes_requested_names() -> None:
     assert regions == ["eu-west-1"]
 
 
+def test_list_enabled_regions_accepts_sovereign_region_names() -> None:
+    session, _, _ = make_session(
+        [
+            {
+                "Regions": [
+                    {"RegionName": "eusc-de-east-1"},
+                    {"RegionName": "us-iso-east-1"},
+                ]
+            }
+        ]
+    )
+
+    assert list_enabled_regions(session=session) == [
+        "eusc-de-east-1",
+        "us-iso-east-1",
+    ]
+
+
 def test_list_enabled_regions_rejects_response_without_name() -> None:
     session, _, _ = make_session([{"Regions": [{"RegionOptStatus": "ENABLED"}]}])
 

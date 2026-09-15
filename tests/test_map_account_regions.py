@@ -33,6 +33,39 @@ def test_empty_region_selection_does_not_bind_authentication(
     assert len(results) == 0
 
 
+def test_explicit_empty_regions_do_not_bind_authentication_with_discovery() -> None:
+    class UnusedAuth:
+        def bind(self, **_kwargs: Any) -> None:
+            pytest.fail("empty explicit Region selection must not resolve credentials")
+
+    results = map_account_regions(
+        lambda _session, _account, _region: None,
+        accounts=["111111111111"],
+        regions=[],
+        discover_regions=True,
+        auth=UnusedAuth(),
+    )
+
+    assert list(results) == []
+
+
+def test_all_excluded_regions_do_not_bind_authentication_with_discovery() -> None:
+    class UnusedAuth:
+        def bind(self, **_kwargs: Any) -> None:
+            pytest.fail("fully excluded Region selection must not resolve credentials")
+
+    results = map_account_regions(
+        lambda _session, _account, _region: None,
+        accounts=["111111111111"],
+        regions=["eu-west-1"],
+        exclude_regions=["eu-west-1"],
+        discover_regions=True,
+        auth=UnusedAuth(),
+    )
+
+    assert list(results) == []
+
+
 class FakeMeta:
     partition = "aws"
 
@@ -328,6 +361,21 @@ def test_map_account_regions_auth_failure_falls_back_to_requested_region() -> No
 
     assert results[0].success is False
     assert results[0].region == "ap-southeast-2"
+
+
+def test_discovery_failure_without_region_context_uses_us_east_1() -> None:
+    bound = FakeBoundAuth(fail_accounts={"111111111111"})
+    bound.region = None  # type: ignore[assignment]
+
+    results = map_account_regions(
+        lambda _session, account, region: f"{account.id}:{region}",
+        accounts=["111111111111"],
+        auth=FakeAuth(bound),
+        discover_regions=True,
+    )
+
+    assert results[0].success is False
+    assert results[0].region == "us-east-1"
 
 
 def test_map_account_regions_assumes_role_once_per_account() -> None:

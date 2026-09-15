@@ -87,8 +87,8 @@ Extra capability should appear beside that shape, not inside `map_accounts`.
 Stability takes priority over more selectors or execution modes. The
 [September 2026 audit](audit-2026-09.md) records the evidence and tradeoffs.
 
-The technical stabilization gates are covered in 0.7. The 1.0.0rc1 candidate
-uses the same runtime and proposes freezing its public contract. Gather
+The technical stabilization gates are covered in 0.7. The 1.0.0rc2 candidate
+applies the audit hardening fixes and proposes freezing the public contract. Gather
 downstream Role/Profile script evidence before stable 1.0. The
 [readiness record](readiness-1.0.md) defines the acceptance criteria; there is
 no feature expansion required to reach 1.0.

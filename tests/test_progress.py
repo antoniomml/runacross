@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from contextlib import redirect_stderr
 from io import StringIO
+from typing import Any
 
 from runacross import (
     Account,
@@ -10,6 +12,20 @@ from runacross import (
     ExecutionPhase,
     show_progress,
 )
+
+
+class RecordingStream:
+    """A text sink that, like some wrappers, has no ``isatty`` method."""
+
+    def __init__(self) -> None:
+        self.written = ""
+
+    def write(self, text: str) -> int:
+        self.written += text
+        return len(text)
+
+    def flush(self) -> None:
+        pass
 
 
 def test_show_progress_rewrites_one_line_when_enabled() -> None:
@@ -70,3 +86,25 @@ def test_show_progress_includes_region_and_stays_silent_by_default() -> None:
     unknown = show_progress(file=stream, disable=False)
     unknown(object(), completed=1, total=1)
     assert "worker 1  -" in stream.getvalue()
+
+
+def test_show_progress_handles_streams_without_isatty() -> None:
+    stream = RecordingStream()
+    silent = show_progress(file=stream)
+    visible = show_progress(file=stream, disable=False)
+
+    silent(object(), completed=1, total=1)
+    assert stream.written == ""
+
+    visible(object(), completed=1, total=1)
+    assert "worker 1" in stream.written
+
+
+def test_show_progress_resolves_stderr_when_the_first_result_arrives() -> None:
+    callback: Any = show_progress(disable=False)
+    buffer = StringIO()
+
+    with redirect_stderr(buffer):
+        callback(object(), completed=1, total=1)
+
+    assert "worker 1" in buffer.getvalue()
