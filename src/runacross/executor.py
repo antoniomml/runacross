@@ -133,7 +133,10 @@ def map_account_regions(
     if not target_accounts:
         return RegionResults()
     selected_regions = drop_regions(requested_regions or (), excluded_region_names)
-    if not discover_regions and not selected_regions:
+    # An explicit Region selection that filters down to nothing is an empty
+    # run even when discovery is enabled; only an unfiltered discovery request
+    # may proceed with an empty allowlist.
+    if not selected_regions and (not discover_regions or requested_regions is not None):
         return RegionResults()
 
     bound = resolved_auth.bind(
@@ -160,7 +163,6 @@ def map_account_regions(
             for target in discovered.targets
         )
     else:
-        assert requested_regions is not None
         targets = tuple(
             AccountRegion(account=account, region=region)
             for account in target_accounts
