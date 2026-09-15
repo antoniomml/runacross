@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Iterable, Mapping
-from string import Formatter
 from typing import Any, Protocol, cast
 
 import boto3
@@ -11,7 +10,7 @@ from boto3.session import Session
 from botocore.config import Config
 from botocore.session import Session as BotocoreSession
 
-from .auth import _resolve_session_credentials
+from .auth import _parse_profile_pattern, _resolve_session_credentials
 from .exceptions import ConfigError
 from .models import Account, AccountInput, coerce_accounts, coerce_limit
 from .organizations import _get_organization_id, _validate_organization_id
@@ -75,13 +74,8 @@ def list_accounts(
                 f"profile {profile_name!r} identifies account {matched_account_id} "
                 f"in its name but configures sso_account_id {configured_account_id}"
             )
-        try:
-            account = Account(id=configured_account_id)
-        except (TypeError, ValueError) as error:
-            raise ConfigError(
-                f"profile {profile_name!r} has invalid sso_account_id "
-                f"{configured_account_id!r}"
-            ) from error
+        # The equality check above guarantees 12 ASCII digits.
+        account = Account(id=configured_account_id)
         if account.id in excluded_ids:
             logger.debug("Excluded profile account %s", account.id)
             continue
@@ -107,30 +101,21 @@ def list_accounts(
 
 
 def _compile_profile_pattern(pattern: str) -> re.Pattern[str]:
-    if not isinstance(pattern, str):
-        raise TypeError("pattern must be a non-empty string")
-    if not pattern:
-        raise ConfigError("pattern must be a non-empty string")
     try:
-        parsed = list(Formatter().parse(pattern))
+        parsed = _parse_profile_pattern(
+            pattern,
+            allowed_fields=frozenset({"account_id"}),
+            label="profile discovery pattern",
+        )
     except ValueError as error:
-        raise ConfigError("pattern must be a valid format string") from error
+        raise ConfigError(str(error)) from error
 
     expression: list[str] = []
     account_fields = 0
-    for literal, field_name, format_spec, conversion in parsed:
+    for literal, field_name, _, _ in parsed:
         expression.append(re.escape(literal))
         if field_name is None:
             continue
-        if field_name != "account_id":
-            raise ConfigError(
-                "profile discovery pattern placeholders must be account_id"
-            )
-        if format_spec or conversion:
-            raise ConfigError(
-                "account_id in a profile discovery pattern cannot use a format "
-                "specification or conversion"
-            )
         account_fields += 1
         expression.append(r"(?P<account_id>[0-9]{12})")
 

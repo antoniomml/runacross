@@ -85,6 +85,29 @@ def test_profile_pattern_rejects_unknown_placeholders() -> None:
         Profile("{account_id}-{role}")
 
 
+@pytest.mark.parametrize("pattern", ["{account_id", "{name}}"])
+def test_profile_pattern_rejects_malformed_format_strings(pattern: str) -> None:
+    with pytest.raises(ValueError, match="valid format string"):
+        Profile(pattern)
+
+
+@pytest.mark.parametrize("pattern", ["{account_id!r}", "{account_id:>12}"])
+def test_profile_pattern_rejects_conversions_and_format_specs(pattern: str) -> None:
+    with pytest.raises(ValueError, match="format specification or conversion"):
+        Profile(pattern)
+
+
+def test_profile_pattern_rejects_an_empty_string() -> None:
+    with pytest.raises(ValueError, match="non-empty string"):
+        Profile(pattern="")
+
+
+def test_profile_is_hashable_with_a_mapping() -> None:
+    profile = Profile(mapping={"111111111111": "prod-security"})
+
+    assert profile in {profile}
+
+
 def test_profile_pattern_resolves_account_id() -> None:
     profile = Profile("{account_id}-script-SecurityAudit")
 

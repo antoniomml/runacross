@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from string import Formatter
 from typing import Protocol, cast
 
@@ -22,6 +22,47 @@ from .sts import (
 
 _PROFILE_PATTERN_FIELDS = frozenset({"account_id", "name"})
 _DEFAULT_ROLE_SESSION_NAME = "runacross"
+
+# One parsed piece of a format string: literal text, field name, format
+# specification, and conversion. ``Formatter().parse`` produces this shape.
+_ParsedField = tuple[str, str | None, str | None, str | None]
+
+
+def _parse_profile_pattern(
+    pattern: object,
+    *,
+    allowed_fields: frozenset[str],
+    label: str,
+) -> list[_ParsedField]:
+    """Parse a profile pattern and reject placeholders callers cannot match.
+
+    Shared by ``Profile`` and local profile discovery so both surfaces accept
+    the same names. Raises ``TypeError`` for non-string input and ``ValueError``
+    for empty or malformed patterns, unknown placeholders, and placeholders
+    that use a format specification or conversion.
+    """
+
+    if not isinstance(pattern, str):
+        raise TypeError(f"{label} must be a non-empty string")
+    if not pattern:
+        raise ValueError(f"{label} must be a non-empty string")
+    try:
+        parsed = list(Formatter().parse(pattern))
+    except ValueError as error:
+        raise ValueError(f"{label} must be a valid format string") from error
+    allowed = " or ".join(sorted(allowed_fields))
+    for _, field_name, format_spec, conversion in parsed:
+        if field_name is None:
+            continue
+        if field_name not in allowed_fields:
+            raise ValueError(
+                f"{label} placeholders must be {allowed}, not {field_name}"
+            )
+        if format_spec or conversion:
+            raise ValueError(
+                f"{label} placeholders cannot use a format specification or conversion"
+            )
+    return parsed
 
 
 class BoundAuth(Protocol):
@@ -156,9 +197,17 @@ class Profile:
     """Authenticate with named AWS CLI / Identity Center profiles."""
 
     pattern: str | None = None
-    mapping: Mapping[str, str] | None = None
+    # A mapping of profile names is commonly unhashable; exclude it from the
+    # generated hash so Profile instances remain usable in sets and dict keys.
+    mapping: Mapping[str, str] | None = field(default=None, hash=False)
     resolver: Callable[[Account], str] | None = None
     verify_account_id: bool = False
+    _pattern_fields: frozenset[str] = field(
+        init=False,
+        repr=False,
+        compare=False,
+        default=frozenset(),
+    )
 
     def __post_init__(self) -> None:
         if type(self.verify_account_id) is not bool:
@@ -177,20 +226,20 @@ class Profile:
                 "Profile requires exactly one of pattern, mapping, or resolver"
             )
         if self.pattern is not None:
-            if not isinstance(self.pattern, str) or not self.pattern:
-                raise TypeError("pattern must be a non-empty string")
-            fields = {
-                field_name
-                for _, field_name, _, _ in Formatter().parse(self.pattern)
-                if field_name is not None
-            }
-            unknown = fields - _PROFILE_PATTERN_FIELDS
-            if unknown:
-                unknown_list = ", ".join(sorted(unknown))
-                raise ValueError(
-                    "profile pattern placeholders must be account_id or name, "
-                    f"not {unknown_list}"
-                )
+            parsed = _parse_profile_pattern(
+                self.pattern,
+                allowed_fields=_PROFILE_PATTERN_FIELDS,
+                label="profile pattern",
+            )
+            object.__setattr__(
+                self,
+                "_pattern_fields",
+                frozenset(
+                    field_name
+                    for _, field_name, _, _ in parsed
+                    if field_name is not None
+                ),
+            )
             return
         if self.resolver is not None:
             _validate_callback(self.resolver, label="resolver", positional=1)
@@ -224,15 +273,7 @@ class Profile:
         """Resolve the AWS profile name for one account."""
 
         if self.pattern is not None:
-            if (
-                "name"
-                in {
-                    field_name
-                    for _, field_name, _, _ in Formatter().parse(self.pattern)
-                    if field_name is not None
-                }
-                and account.name is None
-            ):
+            if "name" in self._pattern_fields and account.name is None:
                 raise ValueError(
                     f"profile pattern uses {{name}} but account {account.id} has no name"
                 )
@@ -247,10 +288,13 @@ class Profile:
                 raise KeyError(
                     f"Profile mapping has no entry for account {account.id}"
                 ) from error
-        else:
-            assert self.resolver is not None
+        elif self.resolver is not None:
             name = self.resolver(account)
             _validate_callback_value(name, label="resolver")
+        else:  # pragma: no cover - __post_init__ guarantees one strategy
+            raise ValueError(
+                "Profile requires exactly one of pattern, mapping, or resolver"
+            )
         if not isinstance(name, str) or not name:
             raise ValueError("resolved profile name must be a non-empty string")
         return name
@@ -272,6 +316,11 @@ class BoundProfile:
         return getattr(self._local, "profile_name", None), None
 
     def session_for(self, account: Account, *, region: str | None = None) -> Session:
+        # A fresh Session per target is deliberate: Boto3 Sessions are not
+        # thread-safe, and caching frozen credentials would stop Identity
+        # Center from refreshing between targets in a long run. The cost is
+        # re-reading the named profile and re-resolving credentials per target;
+        # verify_account_id adds one GetCallerIdentity call per target too.
         # Metadata belongs to this attempt, including failed resolution. Never
         # run user code a second time just to label a result.
         self._local.profile_name = None

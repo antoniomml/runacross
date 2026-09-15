@@ -409,3 +409,121 @@ def test_organization_profile_must_use_selected_sso_session(
             organization_id="o-exampleorgid",
             organization_profile="AWSAdministratorAccess-999999999999",
         )
+
+
+def test_list_accounts_ignores_non_mapping_profile_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = shared_config(
+        {
+            "AWS-Infosec-111111111111": {
+                "sso_session": "control-tower",
+                "sso_account_id": "111111111111",
+            }
+        }
+    )
+    config["profiles"]["broken"] = "not-a-mapping"
+    install_config(monkeypatch, config)
+
+    accounts = list_accounts(
+        pattern="AWS-Infosec-{account_id}",
+        sso_session="control-tower",
+    )
+
+    assert accounts == [Account(id="111111111111")]
+
+
+def test_list_accounts_rejects_invalid_patterns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_config(monkeypatch, shared_config({}))
+
+    with pytest.raises(TypeError, match="pattern"):
+        list_accounts(pattern=1, sso_session="control-tower")  # type: ignore[arg-type]
+
+    with pytest.raises(ConfigError, match="non-empty string"):
+        list_accounts(pattern="", sso_session="control-tower")
+
+    with pytest.raises(ConfigError, match="valid format string"):
+        list_accounts(pattern="{account_id", sso_session="control-tower")
+
+
+def test_list_accounts_rejects_invalid_sso_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_config(monkeypatch, shared_config({}))
+
+    with pytest.raises(TypeError, match="sso_session"):
+        list_accounts(pattern="AWS-{account_id}", sso_session=1)  # type: ignore[arg-type]
+
+    with pytest.raises(ConfigError, match="sso_session"):
+        list_accounts(pattern="AWS-{account_id}", sso_session="")
+
+
+def test_list_accounts_rejects_invalid_organization_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_config(monkeypatch, shared_config({}))
+
+    with pytest.raises(TypeError, match="organization_profile"):
+        list_accounts(
+            pattern="AWS-{account_id}",
+            sso_session="control-tower",
+            organization_id="o-exampleorgid",
+            organization_profile=1,  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ConfigError, match="organization_profile"):
+        list_accounts(
+            pattern="AWS-{account_id}",
+            sso_session="control-tower",
+            organization_id="o-exampleorgid",
+            organization_profile="",
+        )
+
+
+def test_list_accounts_rejects_non_mapping_config_sections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = shared_config({})
+    config["profiles"] = "not-a-mapping"
+    install_config(monkeypatch, config)
+
+    with pytest.raises(ConfigError, match="config section"):
+        list_accounts(pattern="AWS-{account_id}", sso_session="control-tower")
+
+
+def test_organization_profile_must_exist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_config(monkeypatch, organization_config())
+
+    with pytest.raises(ConfigError, match="was not found"):
+        list_accounts(
+            pattern="AWS-Infosec-{account_id}",
+            sso_session="control-tower",
+            organization_id="o-exampleorgid",
+            organization_profile="missing-profile",
+        )
+
+
+def test_organization_profile_must_have_a_region(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_config(monkeypatch, organization_config())
+    client = FakeOrganizationsClient("o-exampleorgid")
+
+    def fake_session(profile_name: str) -> FakeBotoSession:
+        session = FakeBotoSession(profile_name, client)
+        session.region_name = None  # type: ignore[assignment]
+        return session
+
+    monkeypatch.setattr("runacross.profiles.boto3.Session", fake_session)
+
+    with pytest.raises(ConfigError, match="must have a region"):
+        list_accounts(
+            pattern="AWS-Infosec-{account_id}",
+            sso_session="control-tower",
+            organization_id="o-exampleorgid",
+            organization_profile="AWSAdministratorAccess-999999999999",
+        )

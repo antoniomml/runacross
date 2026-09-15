@@ -58,6 +58,11 @@ def validate_assume_role_options(
 
     if not isinstance(role_name, str):
         raise TypeError("role_name must be a string")
+    if ":" in role_name:
+        raise ValueError(
+            "role_name must be an IAM role name or path, not an ARN or "
+            "account-qualified name"
+        )
     if (
         not role_name
         or role_name.startswith("/")
