@@ -15,28 +15,32 @@ def show_progress(
     """Return an ``on_result`` callback that rewrites one status line.
 
     The line is written to stderr when that stream is a TTY. Piped output,
-    CI, and Lambda stay silent unless ``disable`` is set explicitly. This is
-    not a progress-bar library: callers who want tqdm or rich can pass their
-    own ``on_result`` instead.
+    CI, and Lambda stay silent unless ``disable`` is set explicitly. The
+    destination stream and its TTY detection are resolved when the first
+    result arrives, so ``stderr`` redirection still applies. Streams without
+    an ``isatty`` method count as non-TTY. This is not a progress-bar library:
+    callers who want tqdm or rich can pass their own ``on_result`` instead.
     """
 
     if disable is not None and not isinstance(disable, bool):
         raise TypeError("disable must be a bool or None")
-    stream = sys.stderr if file is None else file
-    hidden = (not stream.isatty()) if disable is None else disable
     ok = 0
     auth = 0
     worker = 0
     width = 0
+    hidden = disable
 
     def on_result(result: Any, *, completed: int, total: int) -> None:
-        nonlocal ok, auth, worker, width
+        nonlocal ok, auth, worker, width, hidden
         if getattr(result, "success", False):
             ok += 1
         elif getattr(result, "phase", None) is ExecutionPhase.AUTH:
             auth += 1
         else:
             worker += 1
+        stream = sys.stderr if file is None else file
+        if hidden is None:
+            hidden = not _is_tty(stream)
         if hidden:
             return
 
@@ -54,6 +58,13 @@ def show_progress(
             stream.flush()
 
     return on_result
+
+
+def _is_tty(stream: TextIO) -> bool:
+    isatty = getattr(stream, "isatty", None)
+    if not callable(isatty):
+        return False
+    return bool(isatty())
 
 
 def _target_label(result: AccountResult[Any] | AccountRegionResult[Any] | Any) -> str:
