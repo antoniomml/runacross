@@ -19,7 +19,7 @@ Run the complete local checks:
 pytest --cov=runacross --cov-report=term-missing --cov-fail-under=90
 ruff check .
 ruff format --check .
-mypy src/ tests/typing/
+mypy src/ tests/typing/ validation/
 python -m pip_audit
 ```
 
@@ -33,6 +33,10 @@ Windows on 3.14, and the declared minimum Boto3/Botocore on Python 3.10.
 Center providers with Stubber and synthetic configuration. It remains offline.
 `tests/typing/` checks downstream inference and deliberately invalid usages;
 its `type: ignore` lines are negative tests enforced by mypy's strict mode.
+
+The [1.0 validation kit](validation/README.md) provides read-only Role and
+Profile scripts for live candidate evidence. Run them manually against
+disposable accounts; never wire them into tests or CI.
 
 Measure executor overhead without AWS access:
 

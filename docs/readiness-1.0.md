@@ -54,12 +54,32 @@ Keep the current worker default and recommend tuning to actual service latency,
 payload size and environment memory. Bounded futures do not imply bounded SDK
 or result memory; small-memory Lambda functions should start with fewer workers.
 
+## Candidate validation record
+
+The [validation kit](../validation/README.md) runs read-only `Role` and
+`Profile` consumer scripts against real accounts and writes a JSON report with
+the environment, per-target records, and any detected problems. Record one row
+per reviewed run; stable 1.0 requires both authentication strategies to be
+present, green, and reviewed by the consumer's owner.
+
+| Candidate | Auth | Operator | Date | Accounts / Regions | Result | Report |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1.0.0rc2 | Role | _pending_ | | | | |
+| 1.0.0rc2 | Profile | _pending_ | | | | |
+
+A run passes when every target matched its account and Region, `role_name` or
+`profile_name` metadata was correct, expected authentication failures stayed in
+`phase="auth"` without cancelling other targets, and the owner reviewed the
+report. Store reports privately; only link one here when it contains no
+account data.
+
 ## Candidate and stable-release policy
 
-After 0.7.0 passes its checks and installation verification, a `1.0.0rc1` may
-freeze the same runtime API for opt-in downstream validation. Publish candidates
-with the Python version spelling `1.0.0rc1`, a matching `v1.0.0rc1` tag, and the
-GitHub prerelease flag. Normal installs should continue to select 0.7.0.
+After 0.7.0 passes its checks and installation verification, a release
+candidate may freeze the proposed runtime API for opt-in downstream
+validation. Publish candidates with the Python version spelling (for example
+`1.0.0rc2`), a matching `v1.0.0rc2` tag, and the GitHub prerelease flag.
+Normal installs should continue to select 0.7.0.
 
 Stable 1.0 requires the following additional evidence:
 
@@ -67,6 +87,8 @@ Stable 1.0 requires the following additional evidence:
    run against the candidate, with outcomes reviewed by their owner. Current
    offline integration tests cannot prove an organization's IAM trust policies,
    actual Identity Center assignments, or SDK behavior against live services.
+   The [validation kit](../validation/README.md) is a reproducible baseline when
+   no consumer script is available yet; record its results above.
 2. Confirm no remaining known defect requires a public signature, error-phase,
    ordering or export-schema change. Fix compatible defects during the candidate
    period and rerun the relevant checks; issue a new candidate for contract changes.
