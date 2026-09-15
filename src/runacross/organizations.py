@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import deque
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any, Protocol, cast
 
 import boto3
@@ -155,6 +155,11 @@ def _list_accounts_under_parent(
             "list_organizational_units_for_parent"
         ).paginate(ParentId=current):
             for item in page.get("OrganizationalUnits", []):
+                if not isinstance(item, Mapping):
+                    raise ConfigError(
+                        "AWS Organizations returned a non-mapping "
+                        "organizational unit entry"
+                    )
                 child_id = item.get("Id")
                 if not isinstance(child_id, str) or not child_id:
                     raise ConfigError(
@@ -192,6 +197,8 @@ def _extend_accounts(
 
 
 def _account_from_organization_item(item: Any) -> Account | None:
+    if not isinstance(item, Mapping):
+        raise ConfigError("AWS Organizations returned a non-mapping account entry")
     state = item.get("State")
     if state is None:
         raise ConfigError(
