@@ -36,6 +36,11 @@ def test_account_rejects_invalid_ids(account_id: str) -> None:
         Account(id=account_id)
 
 
+def test_account_rejects_non_string_id() -> None:
+    with pytest.raises(TypeError, match="account id must be a string"):
+        Account(id=123456789012)  # type: ignore[arg-type]
+
+
 def test_account_accepts_valid_id_and_metadata() -> None:
     account = Account(
         id="123456789012",
@@ -93,6 +98,28 @@ def test_coerce_accounts_rejects_a_single_string() -> None:
 def test_coerce_accounts_rejects_unsupported_values() -> None:
     with pytest.raises(TypeError, match="index 1"):
         coerce_accounts(["111111111111", 42])  # type: ignore[list-item]
+
+
+def test_account_result_rejects_negative_duration() -> None:
+    with pytest.raises(ValueError, match="cannot be negative"):
+        AccountResult[None](
+            account=Account(id="111111111111"),
+            value=None,
+            error=None,
+            duration_seconds=-0.1,
+            phase=None,
+        )
+
+
+def test_successful_result_cannot_have_a_failure_phase() -> None:
+    with pytest.raises(ValueError, match="successful result"):
+        AccountResult[None](
+            account=Account(id="111111111111"),
+            value=None,
+            error=None,
+            duration_seconds=0.1,
+            phase=ExecutionPhase.AUTH,
+        )
 
 
 def test_account_result_success_can_contain_none() -> None:
@@ -335,6 +362,19 @@ def test_coerce_regions_accepts_gov_and_standard_names() -> None:
     )
 
 
+def test_coerce_regions_accepts_sovereign_and_iso_names() -> None:
+    assert coerce_regions(["eusc-de-east-1", "us-iso-east-1", "eu-isoe-west-1"]) == (
+        "eusc-de-east-1",
+        "us-iso-east-1",
+        "eu-isoe-west-1",
+    )
+
+
+def test_coerce_regions_rejects_non_string_names() -> None:
+    with pytest.raises(TypeError, match="region at index 0 must be a string"):
+        coerce_regions([1])  # type: ignore[list-item]
+
+
 def test_exclude_accounts_preserves_order() -> None:
     accounts = coerce_accounts(["111111111111", "222222222222", "333333333333"])
 
@@ -355,6 +395,59 @@ def test_coerce_limit_rejects_invalid_values() -> None:
         coerce_limit(True)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="cannot be negative"):
         coerce_limit(-1)
+
+
+def test_account_region_rejects_missing_parts() -> None:
+    with pytest.raises(TypeError, match="account must be an Account"):
+        AccountRegion(account="111111111111", region="eu-west-1")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="region must be a string"):
+        AccountRegion(account=Account(id="111111111111"), region=1)  # type: ignore[arg-type]
+
+
+def test_account_region_result_rejects_non_target() -> None:
+    with pytest.raises(TypeError, match="target must be an AccountRegion"):
+        AccountRegionResult(
+            target="111111111111",  # type: ignore[arg-type]
+            value=None,
+            error=None,
+            duration_seconds=0.1,
+            phase=None,
+        )
+
+
+def test_account_region_result_unwrap_raises_the_stored_error() -> None:
+    error = RuntimeError("failed")
+    failed = AccountRegionResult[str](
+        target=AccountRegion(account=Account(id="111111111111"), region="eu-west-1"),
+        value=None,
+        error=error,
+        duration_seconds=0.1,
+        phase=ExecutionPhase.WORKER,
+    )
+
+    with pytest.raises(RuntimeError, match="failed") as raised:
+        failed.unwrap()
+    assert raised.value is error
+
+
+def test_results_are_hashable_with_unhashable_values() -> None:
+    account_result = AccountResult(
+        account=Account(id="111111111111"),
+        value={"instances": ["i-1"]},
+        error=None,
+        duration_seconds=0.1,
+        phase=None,
+    )
+    region_result = AccountRegionResult(
+        target=AccountRegion(account=Account(id="111111111111"), region="eu-west-1"),
+        value=["i-1"],
+        error=None,
+        duration_seconds=0.1,
+        phase=None,
+    )
+
+    assert account_result in {account_result}
+    assert region_result in {region_result}
 
 
 def test_account_region_result_exposes_target_identity() -> None:

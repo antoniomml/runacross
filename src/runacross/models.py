@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from math import isfinite
 from typing import Any, Generic, TypeVar, cast, overload
 
 _ACCOUNT_ID_PATTERN = re.compile(r"[0-9]{12}\Z")
-_REGION_PATTERN = re.compile(r"[a-z]{2}(-[a-z0-9]+)+-\d+\Z")
+# The leading geography segment varies in length ("us", "eusc", "il"), so the
+# pattern accepts two or more lowercase letters before the hyphenated parts.
+_REGION_PATTERN = re.compile(r"[a-z]{2,}(-[a-z0-9]+)+-\d+\Z")
 
 T_co = TypeVar("T_co", covariant=True)
 
@@ -245,7 +247,9 @@ class AccountResult(Generic[T_co]):
     """The outcome of executing a callback for one AWS account."""
 
     account: Account
-    value: T_co | None
+    # Callback values may be unhashable (dicts, lists). Keep them out of the
+    # generated hash so results remain usable as set members or dict keys.
+    value: T_co | None = field(hash=False)
     error: Exception | None
     duration_seconds: float
     phase: ExecutionPhase | None
@@ -304,7 +308,9 @@ class AccountRegionResult(Generic[T_co]):
     """The outcome of executing a callback for one account and Region pair."""
 
     target: AccountRegion
-    value: T_co | None
+    # Callback values may be unhashable (dicts, lists). Keep them out of the
+    # generated hash so results remain usable as set members or dict keys.
+    value: T_co | None = field(hash=False)
     error: Exception | None
     duration_seconds: float
     phase: ExecutionPhase | None
