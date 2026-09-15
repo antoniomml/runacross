@@ -30,7 +30,7 @@ jobs:
       - run: python -m pip install -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
-      - run: mypy src/ tests/typing/
+      - run: mypy src/ tests/typing/ validation/
       - run: python -m pip_audit
       - run: python -m build
       - run: python -m twine check dist/*
