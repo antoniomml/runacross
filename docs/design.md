@@ -83,10 +83,12 @@ def map_accounts(
 ```
 
 `Role.name` may contain an IAM role path. Role ARN construction is isolated
-internally and uses the STS client's partition.
+internally and uses the STS client's partition. A full role ARN, or any name
+containing `:`, is rejected before authentication.
 
 `Profile` requires exactly one of `pattern`, `mapping`, or `resolver`.
-Patterns may use `{account_id}` and `{name}`.
+Patterns may use `{account_id}` and `{name}` without a format specification or
+conversion, matching the rules enforced by local profile discovery.
 
 Account strings are converted to immutable `Account` values. Account IDs must
 contain exactly 12 ASCII digits. Inputs are not silently deduplicated.
@@ -102,8 +104,10 @@ Failed results expose `error_code` when the stored exception is a Botocore
 
 `RunResults[T]` is an immutable `Sequence` preserving input order. It exposes
 `successful`, `failed`, `success_count`, `failure_count`, `to_dicts()`,
-`failures_by_phase()`, and `summary()`. `to_dicts()` omits the built-in
-Organizations email field and does not add authentication credentials.
+`failures_by_phase()`, and `summary()`. Results are hashable; callback values
+are excluded from the generated hash because they may be unhashable.
+`to_dicts()` omits the built-in Organizations email field and does not add
+authentication credentials.
 Callback values and error messages pass through unchanged and may contain
 sensitive data; callers are responsible for sanitizing exported records.
 
@@ -205,9 +209,13 @@ AWS requests according to each client's configuration.
 therefore inherits the normal credential provider chain. A caller can supply a
 configured Session, for example one using an AWS profile.
 
-`Profile` constructs `boto3.Session(profile_name=...)` per account. Missing
+`Profile` constructs `boto3.Session(profile_name=...)` per target. Missing
 profiles, expired IAM Identity Center sessions, and profiles without a Region
-are per-account `auth` failures.
+are per-account `auth` failures. Sessions are deliberately not cached: Boto3
+Sessions are not thread-safe, and copying frozen credentials would stop
+Identity Center from refreshing between targets in a long run. As a result,
+`verify_account_id=True` makes one `sts:GetCallerIdentity` call per target
+rather than per account, and every target re-resolves the profile.
 
 `Role` sends `ExternalId` only when provided. `DurationSeconds` is omitted
 unless `duration_seconds` is supplied; valid values are 900-43200 seconds and
@@ -306,3 +314,7 @@ Enabled-Region discovery uses Account Management `ListRegions` and treats
 does not describe which Regions an account has enabled.
 `list_enabled_regions()` exposes that query for callers who want to choose
 Regions before execution.
+
+Region names are validated against the AWS naming shape rather than a fixed
+list, so standard, sovereign, and isolated names such as `eu-west-1`,
+`eusc-de-east-1`, and `us-iso-east-1` are accepted.

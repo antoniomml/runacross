@@ -52,8 +52,12 @@ or `discover_regions=True`. All options after `function` are keyword-only.
 The full option lists and defaults are in [design.md](design.md).
 
 - `accounts` accepts an iterable of 12-digit ID strings or `Account` objects.
-  Region names are strings such as `eu-west-1`. Inputs are validated before
-  authentication, preserve order, and are not silently deduplicated.
+  Region names are strings validated against the AWS naming shape, including
+  sovereign and isolated partitions such as `eusc-de-east-1` and
+  `us-iso-east-1`. Inputs are validated before authentication, preserve order,
+  and are not silently deduplicated.
+- `auth=Role(...)` takes an IAM role name or path, not a full role ARN; names
+  containing `:` are rejected before authentication.
 - Choose `auth=Role(...)` or `auth=Profile(...)`. The existing `role_name=`
   shortcut and associated role options remain supported, but cannot be mixed
   with `auth=`. An empty run still requires valid arguments and an auth choice.
@@ -76,13 +80,15 @@ those functions are rejected before authentication (at Profile construction for
 resolvers). Inspectable signatures are checked for the required arguments.
 Opaque extension callables without a signature are checked when invoked.
 
-A synchronous wrapper that returns an awaitable or async generator is rejected
-when its return value is inspected: worker wrappers produce `phase="worker"`
-failures; resolver wrappers produce `phase="auth"` failures. Native coroutines
-are closed without executing them. RunAcross does not start an event loop,
-await values, or cancel caller-owned tasks. Other lazy values, including normal
-generators, are returned as values and are not consumed. Materialize them inside
-the callback if iteration errors should belong to that target.
+A synchronous wrapper that returns an awaitable, async generator, or
+`concurrent.futures.Future` is rejected when its return value is inspected:
+worker wrappers produce `phase="worker"` failures; resolver wrappers produce
+`phase="auth"` failures. Native coroutines are closed without executing them.
+Async generators cannot be closed synchronously, so their cleanup follows
+interpreter garbage collection. RunAcross does not start an event loop, await
+values, or cancel caller-owned tasks. Other lazy values, including normal
+generators, are returned as values and are not consumed. Materialize them
+inside the callback if iteration errors should belong to that target.
 
 ## Result observers
 
@@ -164,8 +170,10 @@ Collections preserve input order and support iteration, integer indexing, and
 tuple slices. `successful` and `failed` return tuples; `summary()` reports
 `total`, `success_count`, `failure_count`, and `failures_by_phase` with `auth` /
 `worker` counts. This is shallow immutability: callback values and exception
-objects may themselves be mutable. `unwrap()` returns `T`, including a valid
-`None` result, or raises the original stored exception.
+objects may themselves be mutable. Results are hashable; callback values are
+excluded from the generated hash because dicts, lists, and similar values are
+not hashable. `unwrap()` returns `T`, including a valid `None` result, or raises
+the original stored exception.
 
 Exported records contain `account_id`, `account_name`, `profile_name`,
 `role_name`, `success`, `value`, `error_type`, `error_message`, `error_code`,

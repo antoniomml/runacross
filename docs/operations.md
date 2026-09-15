@@ -54,6 +54,7 @@ phase begins, so progress may initially be silent.
 | `phase == "auth"` with `AccessDenied` | Source permissions, target trust, external ID, and the requested role path. |
 | Expired Identity Center credentials | Log in with the AWS CLI before running; RunAcross does not run a login flow. |
 | Callback runs in an unexpected account | Use `Profile(..., verify_account_id=True)` to verify the authenticated account before the callback. |
+| `verify_account_id=True` adds latency | It calls `sts:GetCallerIdentity` once per target, including every account and Region pair. Keep it off for large Region matrices unless the cross-account risk justifies the extra calls. |
 | Credentials expire during a long run | Keep the run within the assumed role lifetime; copied Role credentials do not refresh automatically. |
 | Region discovery fails | Check `account:ListRegions`, profile Region configuration, and `botocore_config`. |
 | No accounts returned | Check SSO scope, organization/OU, exclusions, ACTIVE state, and `limit`. `limit=0` performs no discovery or organization guard. |

@@ -7,6 +7,40 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0rc2] - 2026-09-15
+
+### Fixed
+
+- Accept valid AWS Region names whose first segment is longer than two
+  letters, such as the `eusc-de-east-1` sovereign Region, in `coerce_regions`,
+  `AccountRegion`, `map_account_regions`, and `list_enabled_regions`.
+- Raise `ConfigError` instead of `AttributeError` when AWS Organizations
+  returns a non-mapping account or organizational-unit entry.
+- Reject full IAM role ARNs and any `role_name` containing `:` before
+  authentication instead of building an invalid ARN per target.
+- Return empty results without binding authentication when an explicit region
+  selection or the region exclusions leave no Regions, including with
+  `discover_regions=True`.
+- `show_progress()` no longer requires `file.isatty()` and resolves `stderr`
+  when the first result arrives, so stream redirection still applies.
+- Parse profile patterns consistently in `Profile` and
+  `profiles.list_accounts`: malformed format strings raise `ValueError` or
+  `ConfigError` instead of raw formatter errors, and format specifications or
+  conversions such as `{account_id!r}` are rejected on both surfaces.
+- Keep `AccountResult`, `AccountRegionResult`, and `Profile` hashable when
+  callback values or profile mappings are unhashable.
+- Report a `worker`, `auth`, or observer failure instead of success when a
+  callback or resolver returns a `concurrent.futures.Future`.
+
+### Changed
+
+- Replace internal `assert` statements with explicit errors, including under
+  `python -O`.
+- `mypy` without arguments now checks `tests/typing`, matching the documented
+  contributor command.
+- Expand the suite to 306 tests with 100% line coverage, including discovery,
+  profile, and validation error branches.
+
 ## [1.0.0rc1] - 2026-09-06
 
 ### Changed

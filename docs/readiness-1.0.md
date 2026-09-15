@@ -4,6 +4,10 @@ Decision date: September 6, 2026. The 0.7.0 stabilization work supports a
 release candidate, not an immediate stable 1.0 declaration. A candidate is
 an invitation to validate the proposed contract in downstream scripts.
 
+Update (September 15, 2026): `1.0.0rc2` applies the follow-up audit hardening
+fixes and stricter validation to the candidate runtime. The stable 1.0 gates
+below are unchanged and still unmet.
+
 The proposed `1.0.0rc1` contains the same runtime source, tests and dependency
 requirements as 0.7.0. Only package version and release documentation change.
 The candidate must pass the release workflow and public-install verification

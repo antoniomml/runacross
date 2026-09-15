@@ -52,6 +52,14 @@ Applications remain responsible for least-privilege source and target IAM
 policies, target-role trust policies, dependency updates, logging
 configuration, and safe handling of callback results and exceptions.
 
+## Dependency advisories
+
+CI audits a fully resolved, current environment with `pip-audit`, and the
+declared minimum Boto3/Botocore combination is tested for compatibility but not
+audited for advisories. A deployment's pinned transitive dependencies are its
+own responsibility: run `pip-audit` (or an equivalent scanner) in the
+environment you ship.
+
 ## Supported versions
 
 Security fixes target the latest non-prerelease version and the active 1.0
